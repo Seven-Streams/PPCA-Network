@@ -61,10 +61,8 @@ func handleConnection(conn net.Conn) {
 		panic(err)
 	}
 	fmt.Printf("OK")
-	for {
-		go io.Copy(new_conn, conn)
-		go io.Copy(conn, new_conn)
-	}
+	go io.Copy(new_conn, conn)
+	io.Copy(conn, new_conn)
 }
 
 func main() {
