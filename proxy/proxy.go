@@ -48,7 +48,6 @@ func handleConnection(conn net.Conn) {
 			ipv6Bytes[12], ipv6Bytes[13], ipv6Bytes[14], ipv6Bytes[15])
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
-	fmt.Printf(fmt.Sprintf("%s:%d\n", host, port))
 	new_conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		panic(err)
@@ -59,12 +58,10 @@ func handleConnection(conn net.Conn) {
 	secondByte := byte(localPort & 0xFF)
 	defer new_conn.Close()
 	response = []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, firstByte, secondByte}
-	fmt.Println(response)
 	_, err = conn.Write(response)
 	if err != nil {
 		panic(err)
 	}
-	fmt.Printf("OK")
 	go io.Copy(new_conn, conn)
 	io.Copy(conn, new_conn)
 }
