@@ -12,7 +12,7 @@ func handleConnection(conn net.Conn) {
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
 	if err != nil {
-		panic(err)
+		return
 	}
 	data := string(buffer[:n])
 	if data[0] != 0x05 {
@@ -22,7 +22,7 @@ func handleConnection(conn net.Conn) {
 	conn.Write(response)
 	n, err = conn.Read(buffer)
 	if err != nil {
-		panic(err)
+		return
 	}
 	if buffer[0] != 0x05 {
 		panic("Unsupported SOCKS version")
@@ -48,9 +48,10 @@ func handleConnection(conn net.Conn) {
 			ipv6Bytes[12], ipv6Bytes[13], ipv6Bytes[14], ipv6Bytes[15])
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
+	fmt.Printf(fmt.Sprintf("%s:%d\n", host, port))
 	new_conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
-		panic(err)
+		return
 	}
 	localAddr := new_conn.LocalAddr().(*net.TCPAddr)
 	localPort := localAddr.Port
@@ -58,9 +59,10 @@ func handleConnection(conn net.Conn) {
 	secondByte := byte(localPort & 0xFF)
 	defer new_conn.Close()
 	response = []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, firstByte, secondByte}
+	fmt.Println(response)
 	_, err = conn.Write(response)
 	if err != nil {
-		panic(err)
+		return
 	}
 	go io.Copy(new_conn, conn)
 	io.Copy(conn, new_conn)
