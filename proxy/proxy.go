@@ -53,8 +53,12 @@ func handleConnection(conn net.Conn) {
 	if err != nil {
 		panic(err)
 	}
+	localAddr := new_conn.LocalAddr().(*net.TCPAddr)
+	localPort := localAddr.Port
+	firstByte := byte(localPort >> 8)
+	secondByte := byte(localPort & 0xFF)
 	defer new_conn.Close()
-	response = []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0x00, 0x00}
+	response = []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, firstByte, secondByte}
 	fmt.Println(response)
 	_, err = conn.Write(response)
 	if err != nil {
