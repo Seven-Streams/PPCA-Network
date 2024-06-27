@@ -18,10 +18,10 @@ func main() {
 			fmt.Println(expr)
 			expr += "\n"
 			file, err := os.OpenFile(whitelist, os.O_CREATE|os.O_APPEND|os.O_RDWR, 0666)
-			defer file.Close()
 			if err != nil {
 				panic(err)
 			}
+			defer file.Close()
 			_, err = file.Write([]byte(expr))
 			if err != nil {
 				panic(err)
