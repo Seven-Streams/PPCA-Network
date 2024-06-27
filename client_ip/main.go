@@ -10,6 +10,15 @@ import (
 	"runtime"
 )
 
+func fileExists(filename string) bool {
+	file, err := os.Open(filename)
+	if os.IsNotExist(err) {
+		return false
+	}
+	defer file.Close()
+	return err == nil
+}
+
 func handleClient(conn net.Conn) {
 	whitelist := "../white_ip.txt"
 	blacklist := "../black_ip.txt"
@@ -20,23 +29,23 @@ func handleClient(conn net.Conn) {
 	}
 	buffer := make([]byte, 1024)
 	remote_buffer := make([]byte, 1024)
-	_, err = conn.Read(buffer) //the first pack.
+	n, err := conn.Read(buffer) //the first pack.
 	if err != nil {
 		return
 	}
-	_, err = remote_conn.Write(buffer) //pass the first pack.
+	_, err = remote_conn.Write(buffer[:n]) //pass the first pack.
 	if err != nil {
 		return
 	}
-	_, err = remote_conn.Read(remote_buffer) //get the first reply.
+	n, err = remote_conn.Read(remote_buffer) //get the first reply.
 	if err != nil {
 		return
 	}
-	_, err = conn.Write(remote_buffer) //pass the first reply.
+	_, err = conn.Write(remote_buffer[:n]) //pass the first reply.
 	if err != nil {
 		return
 	}
-	n, err := conn.Read(buffer)
+	n, err = conn.Read(buffer)
 	if err != nil {
 		return
 	}
@@ -54,43 +63,50 @@ func handleClient(conn net.Conn) {
 			ipv6Bytes[8], ipv6Bytes[9], ipv6Bytes[10], ipv6Bytes[11],
 			ipv6Bytes[12], ipv6Bytes[13], ipv6Bytes[14], ipv6Bytes[15])
 	}
-	file, err := os.Open(blacklist)
-	if err != nil {
-		return
-	}
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		expr, err := regexp.Compile(scanner.Text())
+	if fileExists(blacklist) {
+		file, err := os.Open(blacklist)
 		if err != nil {
 			return
 		}
-		if expr.MatchString(host) {
-			return
-		}
-	}
-	file.Close()
-	file, err = os.Open(whitelist)
-	if err != nil {
-		return
-	}
-	scanner = bufio.NewScanner(file)
-	for scanner.Scan() {
-		expr, err := regexp.Compile(scanner.Text())
-		if err != nil {
-			return
-		}
-		if expr.MatchString(host) {
-			remote_conn.Close()
-			port := int(buffer[n-2])<<8 | int(buffer[n-1])
-
-			remote_conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			expr, err := regexp.Compile(scanner.Text())
 			if err != nil {
 				return
 			}
-			break
+			if expr.MatchString(host) {
+				return
+			}
 		}
 	}
+	if fileExists(whitelist) {
+		file, err := os.Open(whitelist)
+		if err != nil {
+			return
+		}
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			expr, err := regexp.Compile(scanner.Text())
+			if err != nil {
+				return
+			}
+			if expr.MatchString(host) {
+				remote_conn.Close()
+				port := int(buffer[n-2])<<8 | int(buffer[n-1])
 
+				remote_conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
+				if err != nil {
+					return
+				}
+					defer remote_conn.Close()
+					go io.Copy(remote_conn, conn)
+					io.Copy(conn, remote_conn)
+					return
+			}
+		}
+	remote_conn.Write(buffer[:n])
 	defer remote_conn.Close()
 	go io.Copy(remote_conn, conn)
 	io.Copy(conn, remote_conn)
