@@ -32,7 +32,6 @@ func parseHTTPSRequest(stream []byte) (host string) {
 			ptr += 7
 			host_len := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
 			host = string(stream[ptr:(ptr + host_len)])
-			fmt.Println(ptr)
 			return
 		}
 	}
