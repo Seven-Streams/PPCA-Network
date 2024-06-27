@@ -7,8 +7,8 @@ import (
 
 func main() {
 	for {
-		whitelist := "../white_ip.txt"
-		blacklist := "../black_ip.txt"
+		whitelist := "../white.txt"
+		blacklist := "../black.txt"
 		fmt.Println("Input 1 to set whitelist, Input 2 to set blacklist, Input other to quit.")
 		var kind int
 		var expr string
