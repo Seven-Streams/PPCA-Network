@@ -8,7 +8,28 @@ import (
 	"os"
 	"regexp"
 	"runtime"
+	"strings"
 )
+
+func parseHTTPRequest(request string) (host string) {
+	reader := bufio.NewReader(strings.NewReader(request))
+	_, _ = reader.ReadString('\n')
+	for {
+		line, err := reader.ReadString('\n')
+		if err != nil || strings.TrimSpace(line) == "" {
+			break
+		}
+		if len(line) <= 6 {
+			continue
+		}
+		if string(line[0:6]) == "Host: " {
+			fmt.Println(string(line[6:]))
+			host = string(line[6:])
+			return
+		}
+	}
+	return
+}
 
 func fileExists(filename string) bool {
 	file, err := os.Open(filename)
@@ -49,15 +70,15 @@ func handleClient(conn net.Conn) {
 	if err != nil {
 		return
 	}
-	request := buffer[:n]
+	request := make([]byte, n)
+	copy(request, buffer[:n])
 	response := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0x00, 0x00}
 	conn.Write([]byte(response))
-	var host string
 	n, err = conn.Read(buffer)
+	host := parseHTTPRequest(string(buffer[:n]))
 	if err != nil {
 		return
 	}
-	fmt.Print(buffer)
 	if fileExists(blacklist) {
 		file, err := os.Open(blacklist)
 		if err != nil {
@@ -96,6 +117,7 @@ func handleClient(conn net.Conn) {
 					return
 				}
 				defer remote_conn.Close()
+				remote_conn.Write(buffer[:n])
 				go io.Copy(remote_conn, conn)
 				io.Copy(conn, remote_conn)
 				return
@@ -105,6 +127,7 @@ func handleClient(conn net.Conn) {
 	remote_conn.Write(request)      //To send the true request.
 	remote_conn.Read(remote_buffer) //Ignore the reply.
 	defer remote_conn.Close()
+	remote_conn.Write(buffer[:n])
 	go io.Copy(remote_conn, conn)
 	io.Copy(conn, remote_conn)
 }
