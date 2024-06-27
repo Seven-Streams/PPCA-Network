@@ -13,10 +13,10 @@ func main() {
 		var kind int
 		var expr string
 		fmt.Scanln(&kind)
-		fmt.Scanln(&expr)
-		expr += "\n"
 		if kind == 1 {
-			file, err := os.OpenFile(whitelist, os.O_RDWR|os.O_APPEND, 0666)
+			fmt.Scanln(&expr)
+			expr += "\n"
+			file, err := os.OpenFile(whitelist, os.O_CREATE|os.O_APPEND, 0666)
 			if err != nil {
 				panic(err)
 			}
@@ -24,13 +24,16 @@ func main() {
 			file.Close()
 		} else {
 			if kind == 2 {
-				file, err := os.OpenFile(blacklist, os.O_RDWR|os.O_APPEND, 0666)
+				fmt.Scanln(&expr)
+				expr += "\n"
+				file, err := os.OpenFile(blacklist, os.O_CREATE|os.O_APPEND, 0666)
 				if err != nil {
 					panic(err)
 				}
 				file.Write([]byte(expr))
 				file.Close()
 			} else {
+				fmt.Println("bye")
 				os.Exit(1)
 			}
 		}
