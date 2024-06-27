@@ -29,23 +29,28 @@ func handleClient(conn net.Conn) {
 	}
 	buffer := make([]byte, 1024)
 	remote_buffer := make([]byte, 1024)
-	n, err := conn.Read(buffer) //the first pack.
+	_, err = conn.Read(buffer) //the first pack.
 	if err != nil {
 		return
 	}
-	_, err = remote_conn.Write(buffer[:n]) //pass the first pack.
+	fmt.Println("OK1")
+	_, err = remote_conn.Write(buffer) //pass the first pack.
 	if err != nil {
 		return
 	}
-	n, err = remote_conn.Read(remote_buffer) //get the first reply.
+	fmt.Println("OK2")
+	_, err = remote_conn.Read(remote_buffer) //get the first reply.
 	if err != nil {
 		return
 	}
-	_, err = conn.Write(remote_buffer[:n]) //pass the first reply.
+	fmt.Println("OK3")
+	_, err = conn.Write(remote_buffer) //pass the first reply.
 	if err != nil {
 		return
 	}
-	n, err = conn.Read(buffer)
+	fmt.Println("OK4")
+	n, err := conn.Read(buffer)
+	fmt.Println("OK5")
 	if err != nil {
 		return
 	}
@@ -100,13 +105,10 @@ func handleClient(conn net.Conn) {
 				if err != nil {
 					return
 				}
-					defer remote_conn.Close()
-					go io.Copy(remote_conn, conn)
-					io.Copy(conn, remote_conn)
-					return
+				break
 			}
 		}
-	remote_conn.Write(buffer[:n])
+	}
 	defer remote_conn.Close()
 	go io.Copy(remote_conn, conn)
 	io.Copy(conn, remote_conn)
