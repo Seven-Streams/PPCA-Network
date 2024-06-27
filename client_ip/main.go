@@ -20,8 +20,8 @@ func fileExists(filename string) bool {
 }
 
 func handleClient(conn net.Conn) {
-	whitelist := "../white.txt"
-	blacklist := "../black.txt"
+	whitelist := "../white_ip.txt"
+	blacklist := "../black_ip.txt"
 	defer conn.Close()
 	remote_conn, err := net.Dial("tcp", "127.0.0.1:24625") //dial to the server.
 	if err != nil {
@@ -29,28 +29,23 @@ func handleClient(conn net.Conn) {
 	}
 	buffer := make([]byte, 1024)
 	remote_buffer := make([]byte, 1024)
-	_, err = conn.Read(buffer) //the first pack.
+	n, err := conn.Read(buffer) //the first pack.
 	if err != nil {
 		return
 	}
-	fmt.Println("OK1")
-	_, err = remote_conn.Write(buffer) //pass the first pack.
+	_, err = remote_conn.Write(buffer[:n]) //pass the first pack.
 	if err != nil {
 		return
 	}
-	fmt.Println("OK2")
-	_, err = remote_conn.Read(remote_buffer) //get the first reply.
+	n, err = remote_conn.Read(remote_buffer) //get the first reply.
 	if err != nil {
 		return
 	}
-	fmt.Println("OK3")
-	_, err = conn.Write(remote_buffer) //pass the first reply.
+	_, err = conn.Write(remote_buffer[:n]) //pass the first reply.
 	if err != nil {
 		return
 	}
-	fmt.Println("OK4")
-	n, err := conn.Read(buffer)
-	fmt.Println("OK5")
+	n, err = conn.Read(buffer)
 	if err != nil {
 		return
 	}
@@ -105,10 +100,14 @@ func handleClient(conn net.Conn) {
 				if err != nil {
 					return
 				}
-				break
+				defer remote_conn.Close()
+				go io.Copy(remote_conn, conn)
+				io.Copy(conn, remote_conn)
+				return
 			}
 		}
 	}
+	remote_conn.Write(buffer[:n])
 	defer remote_conn.Close()
 	go io.Copy(remote_conn, conn)
 	io.Copy(conn, remote_conn)
