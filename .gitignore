@@ -1,2 +1,6 @@
 /client/main
 /proxy/main
+/fileio/main
+/client_ip/main
+white_ip.txt
+black_ip.txt
