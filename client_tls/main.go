@@ -8,23 +8,31 @@ import (
 	"os"
 	"regexp"
 	"runtime"
-	"strings"
 )
 
-func parseHTTPRequest(request string) (host string) {
-	reader := bufio.NewReader(strings.NewReader(request))
-	_, _ = reader.ReadString('\n')
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil || strings.TrimSpace(line) == "" {
-			break
-		}
-		if len(line) <= 6 {
-			continue
-		}
-		if string(line[0:6]) == "Host: " {
-			fmt.Println(string(line[6:]))
-			host = string(line[6:])
+func parseHTTPSRequest(stream []byte) (host string) {
+	upper := len(stream)
+	ptr := 43
+	ptr += int(stream[ptr]) //std 75
+	ptr++                   // std 76
+	length := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
+	ptr += length           //std 108
+	ptr += 2                //std 110
+	ptr += int(stream[ptr]) // std 111
+	ptr++                   //std 112
+	ptr += 2                // std 114
+	for ptr < upper {
+		index := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
+		if index != 0 {
+			ptr += 2 // to the length bit.
+			part_len := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
+			ptr += part_len
+			ptr += 2
+		} else {
+			ptr += 7
+			host_len := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
+			host = string(stream[ptr:(ptr + host_len)])
+			fmt.Println(ptr)
 			return
 		}
 	}
@@ -75,7 +83,7 @@ func handleClient(conn net.Conn) {
 	response := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0x00, 0x00}
 	conn.Write([]byte(response))
 	n, err = conn.Read(buffer)
-	host := parseHTTPRequest(string(buffer[:n]))
+	host := parseHTTPSRequest(buffer[:n])
 	if err != nil {
 		return
 	}
