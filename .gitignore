@@ -5,8 +5,11 @@
 /client_http/main
 /client_tls/main
 white.txt
-black.txt
-rootCA.crt
-rootCA.key
-domain.ext
+black.txtW
+/hacker/rootCA.crt
+/hacker/rootCA.key
+/hacker/domain.ext
+/hacker/domain.key
+/hacker/domain.csr
+/hacker/domain.crt
 /hacker/main

@@ -1,34 +1,30 @@
 package main
 
 import (
-	"crypto/x509"
-	"encoding/pem"
-	"log"
+	"fmt"
 	"os"
+	"os/exec"
 )
 
-func ReadRootCA() (Root *x509.Certificate) {
-	certPEM, err := os.ReadFile("../rootCA.crt")
+func CreateMyCert(domain string) {
+	file, err := os.OpenFile("domain.ext", os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
-		log.Fatalf("Failed to read certificate file: %v", err)
+		panic(err)
 	}
-
-	block, _ := pem.Decode(certPEM)
-	if block == nil {
-		log.Fatal("Failed to decode PEM block containing the certificate")
+	defer file.Close()
+	file.Write([]byte("authorityKeyIdentifier=keyid,issuer\n"))
+	file.Write([]byte("basicConstraints=CA:FALSE\n"))
+	file.Write([]byte("subjectAltName = @alt_names\n"))
+	file.Write([]byte("[alt_names]\n"))
+	file.Write([]byte("DNS.1 = " + domain))
+	cmd := exec.Command("bash", "-c", "openssl x509 -req -CA rootCA.crt -CAkey rootCA.key -in domain.csr -out domain.crt -days 365 -CAcreateserial -extfile domain.ext")
+	err = cmd.Run()
+	if err != nil {
+		fmt.Println(err)
 		return
 	}
-
-	cert, err := x509.ParseCertificate(block.Bytes)
-	if err != nil {
-		log.Fatalf("Failed to parse certificate: %v", err)
-		return
-	}
-	Root = cert
-	return
 }
 
 func main() {
-	root := ReadRootCA()
-
+	CreateMyCert("www.baidu.com")
 }
