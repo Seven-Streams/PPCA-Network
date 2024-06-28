@@ -39,11 +39,11 @@ func handleConnection(conn net.Conn, config *tls.Config) {
 	if err != nil {
 		return
 	}
+	defer remote_conn.Close()
 	buffer := make([]byte, 102400)
 	remote_buffer := make([]byte, 102400)
 	go Pass(conn, remote_conn, buffer, "From.txt")
 	Pass(remote_conn, conn, remote_buffer, "Receive.txt")
-	remote_conn.Close()
 }
 
 func main() {

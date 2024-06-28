@@ -1,15 +1,20 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
-	"io"
 	"net"
 	"os"
+	"regexp"
 	"runtime"
+	"strings"
+	"time"
 )
 
-func Pass(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filename string) {
-	file, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
+func PassRecord(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filename string) {
+	now := time.Now()
+	file, err := os.OpenFile(now.Format("2006-01-02_15-04-05")+filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
 	if err != nil {
 		return
 	}
@@ -19,7 +24,71 @@ func Pass(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filename str
 		if err != nil {
 			return
 		}
-		file.Write(buffer[:n])
+		reader := bufio.NewReader(strings.NewReader(string(buffer[:n])))
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return
+		}
+		reg, err := regexp.Compile("HTTP")
+		if err != nil {
+			return
+		}
+		if reg.MatchString(line) {
+			reg_host, err := regexp.Compile("Host:")
+			if err != nil {
+				return
+			}
+			reg_agent, err := regexp.Compile("User-Agent:")
+			if err != nil {
+				return
+			}
+			reg_ac, err := regexp.Compile("Accept:")
+			if err != nil {
+				return
+			}
+			var new_buffer string
+			new_buffer += line
+			for err == nil {
+				line, err = reader.ReadString('\n')
+				if reg_host.MatchString(line) || reg_agent.MatchString(line) || reg_ac.MatchString(line) {
+					new_buffer += line
+				}
+			}
+			new_buffer += "\r\n\r\n"
+			file.Write([]byte(new_buffer))
+			conn_send.Write([]byte(new_buffer))
+		} else { //捕获
+			conn_send.Write(buffer[:n])
+		}
+	}
+}
+
+func PassModify(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filename string) {
+	now := time.Now()
+	file, err := os.OpenFile(now.Format("2006-01-02_15-04-05")+filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	for {
+		n, err := conn_receive.Read(buffer)
+		if err != nil {
+			return
+		}
+		reader := bufio.NewReader(strings.NewReader(string(buffer[:n])))
+		line, err := reader.ReadString('\n')
+		if err != nil {
+			return
+		}
+		reg, err := regexp.Compile("HTTP")
+		if err != nil {
+			return
+		}
+
+		if reg.MatchString(line) {
+			buffer = bytes.Replace(buffer, []byte{'P', 'K', 'U'}, []byte{'S', 'J', 'T', 'U'}, -1)
+			file.Write(buffer[:n])
+		} //捕获
 		conn_send.Write(buffer[:n])
 	}
 }
@@ -65,7 +134,6 @@ func handleConnection(conn net.Conn) {
 			ipv6Bytes[12], ipv6Bytes[13], ipv6Bytes[14], ipv6Bytes[15])
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
-	fmt.Printf(fmt.Sprintf("%s:%d\n", host, port))
 	new_conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return
@@ -81,8 +149,11 @@ func handleConnection(conn net.Conn) {
 	if err != nil {
 		return
 	}
-	go io.Copy(new_conn, conn)
-	io.Copy(conn, new_conn)
+	defer new_conn.Close()
+	new_buffer := make([]byte, 102400)
+	remote_buffer := make([]byte, 102400)
+	go PassRecord(conn, new_conn, new_buffer, "From.txt")
+	PassModify(new_conn, conn, remote_buffer, "Receive.txt")
 }
 
 func main() {
