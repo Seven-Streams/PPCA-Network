@@ -6,3 +6,7 @@
 /client_tls/main
 white.txt
 black.txt
+rootCA.crt
+rootCA.key
+domain.ext
+/hacker/main

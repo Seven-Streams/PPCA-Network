@@ -70,7 +70,7 @@ func handleConnection(conn net.Conn) {
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
-	ln, err := net.Listen("tcp", ":24625") //listen on port 24625
+	ln, err := net.Listen("tcp", "localhost:24625") //listen on port 24625
 	if err != nil {
 		panic(err)
 	}

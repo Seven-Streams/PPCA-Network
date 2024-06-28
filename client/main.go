@@ -8,7 +8,7 @@ import (
 
 func handleClient(conn net.Conn) {
 	defer conn.Close()
-	remote_conn, err := net.Dial("tcp", "127.0.0.1:24625") //dial to the server.
+	remote_conn, err := net.Dial("tcp", "localhost:24625") //dial to the server.
 	if err != nil {
 		return
 	}
