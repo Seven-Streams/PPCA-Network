@@ -7,23 +7,23 @@ import (
 	"os"
 )
 
-func Pass(conn_receive *net.Conn, conn_send *net.Conn, buffer []byte, filename string) {
+func Pass(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filename string) {
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
 	if err != nil {
 		return
 	}
 	defer file.Close()
 	for {
-		n, err := (*conn_receive).Read(buffer)
+		n, err := conn_receive.Read(buffer)
 		if err != nil {
 			return
 		}
 		file.Write(buffer[:n])
-		(*conn_send).Write(buffer[:n])
+		conn_send.Write(buffer[:n])
 	}
 }
 
-func handleConnection(conn net.Conn) {
+func handleConnection(conn net.Conn, config *tls.Config) {
 	defer conn.Close()
 	file, err := os.OpenFile("../target_address.txt", os.O_RDONLY, 0666)
 	if err != nil {
@@ -37,14 +37,14 @@ func handleConnection(conn net.Conn) {
 	file.Close()
 	revised_target := string(target[:(n - 4)])
 	revised_target += "80"
-	remote_conn, err := net.Dial("tcp", revised_target)
+	remote_conn, err := tls.Dial("tcp", string(target[:(n-1)]), config)
 	if err != nil {
 		return
 	}
 	buffer := make([]byte, 1024000)
 	remote_buffer := make([]byte, 102400)
-	go Pass(&conn, &remote_conn, buffer, "From.txt")
-	Pass(&remote_conn, &conn, remote_buffer, "Receive.txt")
+	go Pass(conn, remote_conn, buffer, "From.txt")
+	Pass(remote_conn, conn, remote_buffer, "Receive.txt")
 	remote_conn.Close()
 }
 
@@ -66,6 +66,6 @@ func main() {
 			log.Println(err)
 			continue
 		}
-		go handleConnection(conn)
+		go handleConnection(conn, config)
 	}
 }
