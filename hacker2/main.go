@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/tls"
-	"fmt"
 	"log"
 	"net"
 	"os"
@@ -17,12 +16,8 @@ func Pass(conn_receive *net.Conn, conn_send *net.Conn, buffer []byte, filename s
 	for {
 		n, err := (*conn_receive).Read(buffer)
 		if err != nil {
-			fmt.Println(filename)
-			fmt.Println(err)
 			return
 		}
-		fmt.Println(buffer[:n])
-		fmt.Println("OK")
 		file.Write(buffer[:n])
 		(*conn_send).Write(buffer[:n])
 	}
@@ -42,7 +37,6 @@ func handleConnection(conn net.Conn) {
 	file.Close()
 	revised_target := string(target[:(n - 4)])
 	revised_target += "80"
-	fmt.Println(revised_target)
 	remote_conn, err := net.Dial("tcp", revised_target)
 	if err != nil {
 		return

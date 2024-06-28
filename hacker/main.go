@@ -23,7 +23,6 @@ func CreateMyCert(domain string) {
 	cmd := exec.Command("bash", "-c", "openssl x509 -req -CA rootCA.crt -CAkey rootCA.key -in domain.csr -out domain.crt -days 365 -CAcreateserial -extfile domain.ext")
 	err = cmd.Run()
 	if err != nil {
-		fmt.Println(err)
 		return
 	}
 }
@@ -70,8 +69,7 @@ func handleConnection(conn net.Conn) {
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
 	target := string(fmt.Sprintf("%s:%d\n", host, port))
-	fmt.Println(target)
-	file, err := os.OpenFile("../target_address.txt", os.O_CREATE| os.O_WRONLY| os.O_TRUNC, 0666)
+	file, err := os.OpenFile("../target_address.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		return
 	}
@@ -87,7 +85,6 @@ func handleConnection(conn net.Conn) {
 	secondByte := byte(localPort & 0xFF)
 	defer new_conn.Close()
 	response = []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, firstByte, secondByte}
-	fmt.Println(response)
 	_, err = conn.Write(response)
 	if err != nil {
 		return
