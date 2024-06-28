@@ -14,3 +14,6 @@ black.txtW
 /hacker/domain.crt
 /hacker2/main
 /hacker/main
+target_address.txt
+/hacker2/From.txt
+/hacker2/Receive.txt

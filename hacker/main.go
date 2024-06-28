@@ -10,16 +10,16 @@ import (
 )
 
 func CreateMyCert(domain string) {
-	file, err := os.OpenFile("domain.ext", os.O_CREATE|os.O_WRONLY, 0666)
+	my_file, err := os.OpenFile("domain.ext", os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
 		panic(err)
 	}
-	defer file.Close()
-	file.Write([]byte("authorityKeyIdentifier=keyid,issuer\n"))
-	file.Write([]byte("basicConstraints=CA:FALSE\n"))
-	file.Write([]byte("subjectAltName = @alt_names\n"))
-	file.Write([]byte("[alt_names]\n"))
-	file.Write([]byte("DNS.1 = " + domain))
+	defer my_file.Close()
+	my_file.Write([]byte("authorityKeyIdentifier=keyid,issuer\n"))
+	my_file.Write([]byte("basicConstraints=CA:FALSE\n"))
+	my_file.Write([]byte("subjectAltName = @alt_names\n"))
+	my_file.Write([]byte("[alt_names]\n"))
+	my_file.Write([]byte("DNS.1 = " + domain))
 	cmd := exec.Command("bash", "-c", "openssl x509 -req -CA rootCA.crt -CAkey rootCA.key -in domain.csr -out domain.crt -days 365 -CAcreateserial -extfile domain.ext")
 	err = cmd.Run()
 	if err != nil {
@@ -70,11 +70,13 @@ func handleConnection(conn net.Conn) {
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
 	target := string(fmt.Sprintf("%s:%d\n", host, port))
-	file, err := os.OpenFile("../target_address.txt", os.O_CREATE|os.O_WRONLY, 0666)
+	fmt.Println(target)
+	file, err := os.OpenFile("../target_address.txt", os.O_CREATE| os.O_WRONLY| os.O_TRUNC, 0666)
 	if err != nil {
 		return
 	}
 	file.Write([]byte(target))
+	file.Close()
 	new_conn, err := net.Dial("tcp", "localhost:24626")
 	if err != nil {
 		return

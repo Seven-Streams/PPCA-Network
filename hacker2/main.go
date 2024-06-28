@@ -2,30 +2,35 @@ package main
 
 import (
 	"crypto/tls"
+	"fmt"
 	"log"
 	"net"
 	"os"
 )
 
-func Pass(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filename string) {
+func Pass(conn_receive *net.Conn, conn_send *net.Conn, buffer []byte, filename string) {
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
 	if err != nil {
 		return
 	}
 	defer file.Close()
 	for {
-		n, err := conn_receive.Read(buffer)
+		n, err := (*conn_receive).Read(buffer)
 		if err != nil {
+			fmt.Println(filename)
+			fmt.Println(err)
 			return
 		}
+		fmt.Println(buffer[:n])
+		fmt.Println("OK")
 		file.Write(buffer[:n])
-		conn_send.Write(buffer[:n])
+		(*conn_send).Write(buffer[:n])
 	}
 }
 
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
-	file, err := os.OpenFile("../target", os.O_RDONLY, 0666)
+	file, err := os.OpenFile("../target_address.txt", os.O_RDONLY, 0666)
 	if err != nil {
 		return
 	}
@@ -34,15 +39,19 @@ func handleConnection(conn net.Conn) {
 	if err != nil {
 		return
 	}
-	remote_conn, err := net.Dial("tcp", string(target[:n]))
+	file.Close()
+	revised_target := string(target[:(n - 4)])
+	revised_target += "80"
+	fmt.Println(revised_target)
+	remote_conn, err := net.Dial("tcp", revised_target)
 	if err != nil {
 		return
 	}
-	defer remote_conn.Close()
 	buffer := make([]byte, 1024000)
 	remote_buffer := make([]byte, 102400)
-	go Pass(conn, remote_conn, buffer, "From.txt")
-	Pass(remote_conn, conn, remote_buffer, "Receive.txt")
+	go Pass(&conn, &remote_conn, buffer, "From.txt")
+	Pass(&remote_conn, &conn, remote_buffer, "Receive.txt")
+	remote_conn.Close()
 }
 
 func main() {
