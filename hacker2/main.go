@@ -35,13 +35,11 @@ func handleConnection(conn net.Conn, config *tls.Config) {
 		return
 	}
 	file.Close()
-	revised_target := string(target[:(n - 4)])
-	revised_target += "80"
 	remote_conn, err := tls.Dial("tcp", string(target[:(n-1)]), config)
 	if err != nil {
 		return
 	}
-	buffer := make([]byte, 1024000)
+	buffer := make([]byte, 102400)
 	remote_buffer := make([]byte, 102400)
 	go Pass(conn, remote_conn, buffer, "From.txt")
 	Pass(remote_conn, conn, remote_buffer, "Receive.txt")
