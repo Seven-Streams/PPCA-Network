@@ -86,6 +86,7 @@ func handleConnection(conn net.Conn) {
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
 	target := string(fmt.Sprintf("%s:%d\n", host, port))
+	CreateMyCert(host)
 	file, err := os.OpenFile("../target_address.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		return
