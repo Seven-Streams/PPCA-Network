@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"net"
@@ -20,11 +21,27 @@ func CreateMyCert(domain string) {
 	my_file.Write([]byte("subjectAltName = @alt_names\n"))
 	my_file.Write([]byte("[alt_names]\n"))
 	my_file.Write([]byte("DNS.1 = " + domain))
-	cmd := exec.Command("bash", "-c", "openssl x509 -req -CA rootCA.crt -CAkey rootCA.key -in domain.csr -out domain.crt -days 365 -CAcreateserial -extfile domain.ext")
-	err = cmd.Run()
+	cmd := exec.Command("bash", "-c", "openssl req -key domain.key -new -out domain.csr")
+	var stdinBuffer bytes.Buffer
+	stdinBuffer.WriteString("CN\n")
+	stdinBuffer.WriteString("Shanghai\n")
+	stdinBuffer.WriteString("Shanghai\n")
+	stdinBuffer.WriteString("Hackers\n")
+	stdinBuffer.WriteString("Hackers\n")
+	stdinBuffer.WriteString(domain + "\n")
+	stdinBuffer.WriteString("sb\n")
+	stdinBuffer.WriteString("\n\n")
+	stdinPipe, err := cmd.StdinPipe()
 	if err != nil {
 		return
 	}
+
+	go func() {
+		defer stdinPipe.Close()
+		stdinPipe.Write(stdinBuffer.Bytes())
+	}()
+	cmd = exec.Command("bash", "-c", "openssl x509 -req -CA rootCA.crt -CAkey rootCA.key -in domain.csr -out domain.crt -days 365 -CAcreateserial -extfile domain.ext")
+	cmd.Run()
 }
 
 func handleConnection(conn net.Conn) {
