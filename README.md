@@ -6,6 +6,7 @@
   - [x] http分流规则
   - [x] TLS分流规则
   - [x] pid分流规则
+- [x] 多级代理
 - [x] TLS劫持
 - [x] HTTP捕获、修改、重放
 - [x] 关于RNN的presentation
