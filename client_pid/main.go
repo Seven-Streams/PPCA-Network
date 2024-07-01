@@ -2,10 +2,12 @@ package main
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"net"
 	"os"
+	"os/exec"
 	"regexp"
 	"runtime"
 	"strings"
@@ -26,6 +28,26 @@ func handleClient(conn net.Conn) {
 	from := conn.RemoteAddr().String()
 	parts := strings.Split(from, ":")
 	port := parts[len(parts)-1]
+	cmd := exec.Command("lsof", "-i", ":"+port)
+	var out bytes.Buffer
+	cmd.Stdout = &out
+	err := cmd.Run()
+	if err != nil {
+		return
+	}
+	output := out.String()
+	reader := bufio.NewReader(strings.NewReader(output))
+	_, err = reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	command_line, err := reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	slices := strings.Fields(command_line)
+	name := slices[0]
+	println(name)
 	defer conn.Close()
 	remote_conn, err := net.Dial("tcp", "127.0.0.1:24625") //dial to the server.
 	if err != nil {
@@ -79,7 +101,7 @@ func handleClient(conn net.Conn) {
 			if err != nil {
 				return
 			}
-			if expr.MatchString(host) {
+			if expr.MatchString(name) {
 				return
 			}
 		}
@@ -96,7 +118,7 @@ func handleClient(conn net.Conn) {
 			if err != nil {
 				return
 			}
-			if expr.MatchString(host) {
+			if expr.MatchString(name) {
 				remote_conn.Close()
 				port := int(buffer[n-2])<<8 | int(buffer[n-1])
 
