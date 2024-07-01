@@ -34,15 +34,7 @@ func PassRecord(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filena
 			return
 		}
 		if reg.MatchString(line) {
-			reg_host, err := regexp.Compile("Host:")
-			if err != nil {
-				return
-			}
-			reg_agent, err := regexp.Compile("User-Agent:")
-			if err != nil {
-				return
-			}
-			reg_ac, err := regexp.Compile("Accept:")
+			reg_encode, err := regexp.Compile("Accept-Encoding:\\s*(.*)")
 			if err != nil {
 				return
 			}
@@ -50,7 +42,7 @@ func PassRecord(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filena
 			new_buffer += line
 			for err == nil {
 				line, err = reader.ReadString('\n')
-				if reg_host.MatchString(line) || reg_agent.MatchString(line) || reg_ac.MatchString(line) {
+				if !reg_encode.MatchString(line) {
 					new_buffer += line
 				}
 			}

@@ -20,3 +20,4 @@ target_address.txt
 /http/main
 /https/hacker/main
 /https/hacker2/main
+/client_pid/main
