@@ -79,7 +79,7 @@ func CreateMyCert(domain string) {
 		Subject: pkix.Name{
 			CommonName: domain,
 		},
-		DNSNames: []string{domain, "www.example.com"},
+		DNSNames: []string{domain},
 	}
 	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &csrTemplate, private_key)
 	if err != nil {
@@ -202,7 +202,6 @@ func handleConnection(conn net.Conn) {
 	file.Write([]byte(target))
 	file.Close()
 	time.Sleep(1 * time.Second)
-	fmt.Printf(ln.Addr().String())
 	new_conn, err := net.Dial("tcp", ln.Addr().String())
 	if err != nil {
 		return
