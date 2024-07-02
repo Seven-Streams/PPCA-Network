@@ -12,6 +12,12 @@ black.txtW
 /hacker/domain.key
 /hacker/domain.csr
 /hacker/domain.crt
+/application/rootCA.crt
+/application/rootCA.key
+/application/domain.ext
+/application/domain.key
+/application/domain.csr
+/application/domain.crt
 /hacker2/main
 /hacker/main
 target_address.txt
