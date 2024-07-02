@@ -1407,7 +1407,6 @@ func main() {
 	fmt.Println("To perform a Http Tampering, input\"t\".")
 	fmt.Println("To run a Multi-level proxy, input\"m\".")
 	fmt.Scan(&op)
-	println(op)
 	switch op {
 	case "p":
 		{
