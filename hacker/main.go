@@ -1,47 +1,145 @@
 package main
 
 import (
-	"bytes"
+	"crypto/rand"
+	"crypto/tls"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
 	"fmt"
 	"io"
+	"log"
+	"math/big"
 	"net"
 	"os"
-	"os/exec"
 	"runtime"
+	"time"
 )
 
+func Pass(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filename string) {
+	file, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	for {
+		n, err := conn_receive.Read(buffer)
+		if err != nil {
+			return
+		}
+		file.Write(buffer[:n])
+		conn_send.Write(buffer[:n])
+	}
+}
+
+func handleConnection2(conn net.Conn, config *tls.Config) {
+	defer conn.Close()
+	file, err := os.OpenFile("../target_address.txt", os.O_RDONLY, 0666)
+	if err != nil {
+		return
+	}
+	target := make([]byte, 1024)
+	n, err := file.Read(target)
+	if err != nil {
+		return
+	}
+	file.Close()
+	remote_conn, err := tls.Dial("tcp", string(target[:(n-1)]), config)
+	if err != nil {
+		return
+	}
+	defer remote_conn.Close()
+	buffer := make([]byte, 102400)
+	remote_buffer := make([]byte, 102400)
+	go Pass(conn, remote_conn, buffer, "From.txt")
+	Pass(remote_conn, conn, remote_buffer, "Receive.txt")
+}
+
+func MyTls(ln net.Listener, config *tls.Config) {
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			log.Println(err)
+		}
+		go handleConnection2(conn, config)
+	}
+}
+
 func CreateMyCert(domain string) {
-	my_file, err := os.OpenFile("domain.ext", os.O_CREATE|os.O_WRONLY, 0666)
+	private_key_file, err := os.ReadFile("domain.key")
+	if err != nil {
+		return
+	}
+	private_key_raw, _ := pem.Decode(private_key_file)
+	private_key, err := x509.ParsePKCS8PrivateKey(private_key_raw.Bytes)
 	if err != nil {
 		panic(err)
 	}
-	defer my_file.Close()
-	my_file.Write([]byte("authorityKeyIdentifier=keyid,issuer\n"))
-	my_file.Write([]byte("basicConstraints=CA:FALSE\n"))
-	my_file.Write([]byte("subjectAltName = @alt_names\n"))
-	my_file.Write([]byte("[alt_names]\n"))
-	my_file.Write([]byte("DNS.1 = " + domain))
-	cmd := exec.Command("bash", "-c", "openssl req -key domain.key -new -out domain.csr")
-	var stdinBuffer bytes.Buffer
-	stdinBuffer.WriteString("CN\n")
-	stdinBuffer.WriteString("Shanghai\n")
-	stdinBuffer.WriteString("Shanghai\n")
-	stdinBuffer.WriteString("Hackers\n")
-	stdinBuffer.WriteString("Hackers\n")
-	stdinBuffer.WriteString(domain + "\n")
-	stdinBuffer.WriteString("sb\n")
-	stdinBuffer.WriteString("\n\n")
-	stdinPipe, err := cmd.StdinPipe()
+	csrTemplate := x509.CertificateRequest{
+		Subject: pkix.Name{
+			CommonName: domain,
+		},
+		DNSNames: []string{domain, "www.example.com"},
+	}
+	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &csrTemplate, private_key)
+	if err != nil {
+		return
+	}
+	csr, err := x509.ParseCertificateRequest(csrBytes)
+	if err != nil {
+		return
+	}
+	caCertPEM, err := os.ReadFile("rootCA.crt")
+	if err != nil {
+		return
+	}
+	caCertBlock, _ := pem.Decode(caCertPEM)
+	if caCertBlock == nil {
+		return
+	}
+	caCert, err := x509.ParseCertificate(caCertBlock.Bytes)
 	if err != nil {
 		return
 	}
 
-	go func() {
-		defer stdinPipe.Close()
-		stdinPipe.Write(stdinBuffer.Bytes())
-	}()
-	cmd = exec.Command("bash", "-c", "openssl x509 -req -CA rootCA.crt -CAkey rootCA.key -in domain.csr -out domain.crt -days 365 -CAcreateserial -extfile domain.ext")
-	cmd.Run()
+	caKeyPEM, err := os.ReadFile("rootCA.key")
+	if err != nil {
+		return
+	}
+	caKeyBlock, _ := pem.Decode(caKeyPEM)
+	if caKeyBlock == nil {
+		return
+	}
+	caKey, err := x509.ParsePKCS8PrivateKey(caKeyBlock.Bytes)
+	if err != nil {
+		return
+	}
+	certTemplate := x509.Certificate{
+		SerialNumber: big.NewInt(1),
+		Subject: pkix.Name{
+			CommonName: domain,
+		},
+		NotBefore:             time.Now(),
+		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
+		BasicConstraintsValid: true,
+	}
+	certBytes, err := x509.CreateCertificate(rand.Reader, &certTemplate, caCert, csr.PublicKey, caKey)
+	if err != nil {
+		panic(err)
+	}
+	certPEMBlock := &pem.Block{
+		Type:  "CERTIFICATE",
+		Bytes: certBytes,
+	}
+	certFile, err := os.OpenFile("domain.crt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	if err != nil {
+		panic(err)
+	}
+	defer certFile.Close()
+	err = pem.Encode(certFile, certPEMBlock)
+	if err != nil {
+		return
+	}
 }
 
 func handleConnection(conn net.Conn) {
@@ -86,15 +184,26 @@ func handleConnection(conn net.Conn) {
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
 	target := string(fmt.Sprintf("%s:%d\n", host, port))
-	fmt.Println(host)
-	CreateMyCert("*." + host)
+	CreateMyCert(host)
+	cer, err := tls.LoadX509KeyPair("../hacker/domain.crt", "../hacker/domain.key")
+	if err != nil {
+		log.Fatal(err)
+	}
+	config := &tls.Config{Certificates: []tls.Certificate{cer}}
+	ln, err := tls.Listen("tcp", ":0", config)
+	if err != nil {
+		log.Fatal(err)
+	}
+	go MyTls(ln, config)
 	file, err := os.OpenFile("../target_address.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
 	if err != nil {
 		return
 	}
 	file.Write([]byte(target))
 	file.Close()
-	new_conn, err := net.Dial("tcp", "localhost:24626")
+	time.Sleep(1 * time.Second)
+	fmt.Printf(ln.Addr().String())
+	new_conn, err := net.Dial("tcp", ln.Addr().String())
 	if err != nil {
 		return
 	}
