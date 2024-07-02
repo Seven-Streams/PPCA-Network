@@ -12,6 +12,9 @@ import (
 	"time"
 )
 
+var replace string
+var to_replace string
+
 func PassRecord(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filename string) {
 	now := time.Now()
 	file, err := os.OpenFile(now.Format("2006-01-02_15-04-05")+filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
@@ -36,7 +39,7 @@ func PassRecord(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filena
 			return
 		}
 		if reg.MatchString(line) {
-			reg_encode, err := regexp.Compile("Accept-Encoding:\\s*(.*)")
+			reg_encode, err := regexp.Compile("Accept-Encoding:")
 			if err != nil {
 				return
 			}
@@ -80,15 +83,15 @@ func PassModify(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filena
 		if err != nil {
 			return
 		}
-
 		if reg.MatchString(line) {
-			buffer = bytes.Replace(buffer, []byte{'P', 'K', 'U'}, []byte{'S', 'J', 'T', 'U'}, -1)
+			count := bytes.Count(buffer, []byte(to_replace))
+			buffer = bytes.Replace(buffer, []byte(to_replace), []byte(replace), -1)
+			n += count * (len(replace) - len(to_replace))
 			file.Write(buffer[:n])
 		} //捕获
 		conn_send.Write(buffer[:n])
 	}
 }
-
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
@@ -150,6 +153,8 @@ func handleConnection(conn net.Conn) {
 
 func main() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
+	fmt.Scan(&to_replace)
+	fmt.Scan(&replace)
 	ln, err := net.Listen("tcp", "localhost:24625") //listen on port 24625
 	if err != nil {
 		panic(err)

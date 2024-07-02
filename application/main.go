@@ -21,6 +21,9 @@ import (
 	"time"
 )
 
+var replace string
+var to_replace string
+
 func HandleConnectionProxy(conn net.Conn) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
@@ -58,7 +61,6 @@ func HandleConnectionProxy(conn net.Conn) {
 		host = string(parsed)
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
-	fmt.Printf(fmt.Sprintf("%s:%d\n", host, port))
 	new_conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return
@@ -103,13 +105,13 @@ func HandleConnectionProxyWithUDP(conn net.Conn) {
 	if buffer[1] == 0x01 {
 		HandleTCP(conn, buffer, n)
 	} else if buffer[3] == 0x03 {
-		handleUDP(conn, buffer, n)
+		HandleUDP(conn, buffer, n)
 	} else {
 		panic("Unsupported method.")
 	}
 }
 
-func proxy() {
+func Proxy() {
 	runtime.GOMAXPROCS(runtime.NumCPU())
 	ln, err := net.Listen("tcp", "localhost:24625") //listen on port 24625
 	if err != nil {
@@ -141,7 +143,7 @@ func ProxySupportUDP() {
 	}
 }
 
-func handleClient(conn net.Conn) {
+func HandleClient(conn net.Conn) {
 	defer conn.Close()
 	remote_conn, err := net.Dial("tcp", "localhost:24625") //dial to the server.
 	if err != nil {
@@ -164,11 +166,11 @@ func Client() {
 		if err != nil {
 			panic(err)
 		}
-		go handleClient(conn)
+		go HandleClient(conn)
 	}
 }
 
-func parseHTTPRequest(request string) (host string) {
+func ParseHTTPRequest(request string) (host string) {
 	reader := bufio.NewReader(strings.NewReader(request))
 	_, _ = reader.ReadString('\n')
 	for {
@@ -188,7 +190,7 @@ func parseHTTPRequest(request string) (host string) {
 	return
 }
 
-func handleClientHttp(conn net.Conn) {
+func HandleClientHttp(conn net.Conn) {
 	whitelist := "../white_http.txt"
 	blacklist := "../black_http.txt"
 	defer conn.Close()
@@ -223,11 +225,11 @@ func handleClientHttp(conn net.Conn) {
 	response := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0x00, 0x00}
 	conn.Write([]byte(response))
 	n, err = conn.Read(buffer)
-	host := parseHTTPRequest(string(buffer[:n]))
+	host := ParseHTTPRequest(string(buffer[:n]))
 	if err != nil {
 		return
 	}
-	if fileExists(blacklist) {
+	if FileExists(blacklist) {
 		file, err := os.Open(blacklist)
 		if err != nil {
 			return
@@ -244,7 +246,7 @@ func handleClientHttp(conn net.Conn) {
 			}
 		}
 	}
-	if fileExists(whitelist) {
+	if FileExists(whitelist) {
 		file, err := os.Open(whitelist)
 		if err != nil {
 			return
@@ -292,11 +294,11 @@ func ClientHttp() {
 		if err != nil {
 			panic(err)
 		}
-		go handleClientHttp(conn)
+		go HandleClientHttp(conn)
 	}
 }
 
-func handleClientIp(conn net.Conn) {
+func HandleClientIp(conn net.Conn) {
 	whitelist := "../white_ip.txt"
 	blacklist := "../black_ip.txt"
 	defer conn.Close()
@@ -340,7 +342,7 @@ func handleClientIp(conn net.Conn) {
 			ipv6Bytes[8], ipv6Bytes[9], ipv6Bytes[10], ipv6Bytes[11],
 			ipv6Bytes[12], ipv6Bytes[13], ipv6Bytes[14], ipv6Bytes[15])
 	}
-	if fileExists(blacklist) {
+	if FileExists(blacklist) {
 		file, err := os.Open(blacklist)
 		if err != nil {
 			return
@@ -357,7 +359,7 @@ func handleClientIp(conn net.Conn) {
 			}
 		}
 	}
-	if fileExists(whitelist) {
+	if FileExists(whitelist) {
 		file, err := os.Open(whitelist)
 		if err != nil {
 			return
@@ -402,11 +404,11 @@ func ClientIp() {
 		if err != nil {
 			panic(err)
 		}
-		go handleClientIp(conn)
+		go HandleClientIp(conn)
 	}
 }
 
-func handleClientPid(conn net.Conn) {
+func HandleClientPid(conn net.Conn) {
 	whitelist := "../white_pid.txt"
 	blacklist := "../black_pid.txt"
 	from := conn.RemoteAddr().String()
@@ -473,7 +475,7 @@ func handleClientPid(conn net.Conn) {
 			ipv6Bytes[8], ipv6Bytes[9], ipv6Bytes[10], ipv6Bytes[11],
 			ipv6Bytes[12], ipv6Bytes[13], ipv6Bytes[14], ipv6Bytes[15])
 	}
-	if fileExists(blacklist) {
+	if FileExists(blacklist) {
 		file, err := os.Open(blacklist)
 		if err != nil {
 			return
@@ -490,7 +492,7 @@ func handleClientPid(conn net.Conn) {
 			}
 		}
 	}
-	if fileExists(whitelist) {
+	if FileExists(whitelist) {
 		file, err := os.Open(whitelist)
 		if err != nil {
 			return
@@ -535,11 +537,11 @@ func ClientPid() {
 		if err != nil {
 			panic(err)
 		}
-		go handleClientPid(conn)
+		go HandleClientPid(conn)
 	}
 }
 
-func parseHTTPSRequest(stream []byte) (host string) {
+func ParseHTTPSRequest(stream []byte) (host string) {
 	upper := len(stream)
 	ptr := 43
 	ptr += int(stream[ptr]) //std 75
@@ -567,7 +569,7 @@ func parseHTTPSRequest(stream []byte) (host string) {
 	return
 }
 
-func fileExists(filename string) bool {
+func FileExists(filename string) bool {
 	file, err := os.Open(filename)
 	if os.IsNotExist(err) {
 		return false
@@ -576,7 +578,7 @@ func fileExists(filename string) bool {
 	return err == nil
 }
 
-func handleClientTls(conn net.Conn) {
+func HandleClientTls(conn net.Conn) {
 	whitelist := "../white_tls.txt"
 	blacklist := "../black_tls.txt"
 	defer conn.Close()
@@ -611,11 +613,11 @@ func handleClientTls(conn net.Conn) {
 	response := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0x00, 0x00}
 	conn.Write([]byte(response))
 	n, err = conn.Read(buffer)
-	host := parseHTTPSRequest(buffer[:n])
+	host := ParseHTTPSRequest(buffer[:n])
 	if err != nil {
 		return
 	}
-	if fileExists(blacklist) {
+	if FileExists(blacklist) {
 		file, err := os.Open(blacklist)
 		if err != nil {
 			return
@@ -632,7 +634,7 @@ func handleClientTls(conn net.Conn) {
 			}
 		}
 	}
-	if fileExists(whitelist) {
+	if FileExists(whitelist) {
 		file, err := os.Open(whitelist)
 		if err != nil {
 			return
@@ -680,12 +682,9 @@ func ClientTls() {
 		if err != nil {
 			panic(err)
 		}
-		go handleClient(conn)
+		go HandleClientTls(conn)
 	}
 }
-
-var replace string
-var to_replace string
 
 func Pass(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filename string) {
 	file, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0666)
@@ -709,7 +708,7 @@ func Pass(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filename str
 	}
 }
 
-func handleConnectionKidnapper2(conn net.Conn, config *tls.Config) {
+func HandleConnectionKidnapper2(conn net.Conn, config *tls.Config) {
 	defer conn.Close()
 	file, err := os.OpenFile("../target_address.txt", os.O_RDONLY, 0666)
 	if err != nil {
@@ -738,7 +737,7 @@ func MyTls(ln net.Listener, config *tls.Config) {
 		if err != nil {
 			log.Println(err)
 		}
-		go handleConnectionKidnapper2(conn, config)
+		go HandleConnectionKidnapper2(conn, config)
 	}
 }
 
@@ -819,7 +818,7 @@ func CreateMyCert(domain string) {
 	}
 }
 
-func handleConnectionKidnapper(conn net.Conn) {
+func HandleConnectionKidnapper(conn net.Conn) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
@@ -907,7 +906,7 @@ func Kidnapper() {
 		if err != nil {
 			panic(err)
 		}
-		go handleConnectionKidnapper(conn)
+		go HandleConnectionKidnapper(conn)
 	}
 }
 
@@ -935,7 +934,8 @@ func PassRecord(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filena
 			return
 		}
 		if reg.MatchString(line) {
-			reg_encode, err := regexp.Compile("Accept-Encoding:\\s*(.*)")
+			reg_encode, err := regexp.Compile("Accept-Encoding:")
+			flag := false
 			if err != nil {
 				return
 			}
@@ -943,7 +943,8 @@ func PassRecord(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filena
 			new_buffer += line
 			for err == nil {
 				line, err = reader.ReadString('\n')
-				if !reg_encode.MatchString(line) {
+				if (!reg_encode.MatchString(line)) && (!flag) {
+					flag = true
 					new_buffer += line
 				}
 			}
@@ -979,72 +980,14 @@ func PassModify(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filena
 		if err != nil {
 			return
 		}
-
 		if reg.MatchString(line) {
-			buffer = bytes.Replace(buffer, []byte{'P', 'K', 'U'}, []byte{'S', 'J', 'T', 'U'}, -1)
+			count := bytes.Count(buffer, []byte(to_replace))
+			buffer = bytes.Replace(buffer, []byte(to_replace), []byte(replace), -1)
+			n += count * (len(replace) - len(to_replace))
 			file.Write(buffer[:n])
 		} //捕获
 		conn_send.Write(buffer[:n])
 	}
-}
-
-func handleConnectionModifyHttp(conn net.Conn) {
-	defer conn.Close()
-	buffer := make([]byte, 1024)
-	n, err := conn.Read(buffer)
-	if err != nil {
-		return
-	}
-	data := string(buffer[:n])
-	if data[0] != 0x05 {
-		panic("Unsupported SOCKS version")
-	}
-	response := []byte{0x05, 0x00}
-	conn.Write(response)
-	n, err = conn.Read(buffer)
-	if err != nil {
-		return
-	}
-	if buffer[0] != 0x05 {
-		panic("Unsupported SOCKS version")
-	}
-	if buffer[1] != 0x01 {
-		panic("Unsupported command")
-	}
-	if buffer[2] != 0x00 {
-		panic("Unsupported reserved field")
-	}
-	var host string
-	if buffer[3] == 0x01 {
-		ip := buffer[4:8]
-		host = fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
-	} else if buffer[3] == 0x03 {
-		host = string(buffer[5 : n-2])
-	} else if buffer[3] == 0x04 {
-		parsed := net.ParseIP(string(buffer[4:20]))
-		host = string(parsed)
-	}
-	port := int(buffer[n-2])<<8 | int(buffer[n-1])
-	new_conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
-	if err != nil {
-		return
-	}
-	localAddr := new_conn.LocalAddr().(*net.TCPAddr)
-	localPort := localAddr.Port
-	firstByte := byte(localPort >> 8)
-	secondByte := byte(localPort & 0xFF)
-	defer new_conn.Close()
-	response = []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, firstByte, secondByte}
-	fmt.Println(response)
-	_, err = conn.Write(response)
-	if err != nil {
-		return
-	}
-	defer new_conn.Close()
-	new_buffer := make([]byte, 102400)
-	remote_buffer := make([]byte, 102400)
-	go PassRecord(conn, new_conn, new_buffer, "From.txt")
-	PassModify(new_conn, conn, remote_buffer, "Receive.txt")
 }
 
 func ModifyHttp() {
@@ -1059,11 +1002,11 @@ func ModifyHttp() {
 		if err != nil {
 			panic(err)
 		}
-		go handleConnectionModifyHttp(conn)
+		go HandleConnectionModifyHttp(conn)
 	}
 }
 
-func handleUDP(conn net.Conn, buffer []byte, n int) {
+func HandleUDP(conn net.Conn, buffer []byte, n int) {
 	addr, err := net.ResolveUDPAddr("udp", ":0")
 	if err != nil {
 		return
@@ -1144,7 +1087,7 @@ func HandleTCP(conn net.Conn, buffer []byte, n int) {
 	io.Copy(conn, new_conn)
 }
 
-func handleMulti1(conn net.Conn) {
+func HandleMulti1(conn net.Conn) {
 	defer conn.Close()
 	remote_conn, err := net.Dial("tcp", "localhost:24625") //dial to the server.
 	if err != nil {
@@ -1167,11 +1110,11 @@ func Multi1() {
 		if err != nil {
 			panic(err)
 		}
-		go handleMulti1(conn)
+		go HandleMulti1(conn)
 	}
 }
 
-func handleMulti2(conn net.Conn) {
+func HandleMulti2(conn net.Conn) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
@@ -1244,11 +1187,11 @@ func Multi2() {
 		if err != nil {
 			panic(err)
 		}
-		go handleMulti2(conn)
+		go HandleMulti2(conn)
 	}
 }
 
-func handleMulti3(conn net.Conn) {
+func HandleMulti3(conn net.Conn) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
 	n, err := conn.Read(buffer)
@@ -1285,7 +1228,6 @@ func handleMulti3(conn net.Conn) {
 		host = string(parsed)
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
-	fmt.Printf(fmt.Sprintf("%s:%d\n", host, port))
 	new_conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
 	if err != nil {
 		return
@@ -1317,8 +1259,145 @@ func Multi3() {
 		if err != nil {
 			panic(err)
 		}
-		go handleMulti3(conn)
+		go HandleMulti3(conn)
 	}
+}
+
+func HandleReversed(conn net.Conn) {
+	server1 := "../server1.txt"
+	server2 := "../server2.txt"
+	defer conn.Close()
+	buffer := make([]byte, 10240)
+	n, err := conn.Read(buffer)
+	if err != nil {
+		return
+	}
+	host := ParseHTTPRequest(string(buffer[:n]))
+	if FileExists(server1) {
+		file, err := os.Open(server1)
+		if err != nil {
+			return
+		}
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			expr, err := regexp.Compile(scanner.Text())
+			if err != nil {
+				return
+			}
+			if expr.MatchString(host) {
+				new_conn, err := net.Dial("tcp", "127.0.0.1:22471")
+				if err != nil {
+					return
+				}
+				defer new_conn.Close()
+				new_conn.Write(buffer[:n])
+				go io.Copy(conn, new_conn)
+				io.Copy(new_conn, conn)
+			}
+		}
+		return
+	}
+	if FileExists(server2) {
+		file, err := os.Open(server2)
+		if err != nil {
+			return
+		}
+		defer file.Close()
+		scanner := bufio.NewScanner(file)
+		for scanner.Scan() {
+			expr, err := regexp.Compile(scanner.Text())
+			if err != nil {
+				return
+			}
+			if expr.MatchString(host) {
+				new_conn, err := net.Dial("tcp", "127.0.0.1:22471")
+				if err != nil {
+					return
+				}
+				defer new_conn.Close()
+				new_conn.Write(buffer[:n])
+				go io.Copy(conn, new_conn)
+				io.Copy(new_conn, conn)
+			}
+		}
+		return
+	}
+}
+
+func Reversed() {
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	ln, err := net.Listen("tcp", ":24625") //listen on port 24625
+	if err != nil {
+		panic(err)
+	}
+	defer ln.Close()
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			panic(err)
+		}
+		go HandleReversed(conn)
+	}
+}
+
+func HandleConnectionModifyHttp(conn net.Conn) {
+	defer conn.Close()
+	buffer := make([]byte, 1024)
+	n, err := conn.Read(buffer)
+	if err != nil {
+		return
+	}
+	data := string(buffer[:n])
+	if data[0] != 0x05 {
+		panic("Unsupported SOCKS version")
+	}
+	response := []byte{0x05, 0x00}
+	conn.Write(response)
+	n, err = conn.Read(buffer)
+	if err != nil {
+		return
+	}
+	if buffer[0] != 0x05 {
+		panic("Unsupported SOCKS version")
+	}
+	if buffer[1] != 0x01 {
+		panic("Unsupported command")
+	}
+	if buffer[2] != 0x00 {
+		panic("Unsupported reserved field")
+	}
+	var host string
+	if buffer[3] == 0x01 {
+		ip := buffer[4:8]
+		host = fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+	} else if buffer[3] == 0x03 {
+		host = string(buffer[5 : n-2])
+	} else if buffer[3] == 0x04 {
+		parsed := net.ParseIP(string(buffer[4:20]))
+		host = string(parsed)
+	}
+	port := int(buffer[n-2])<<8 | int(buffer[n-1])
+	new_conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
+	if err != nil {
+		return
+	}
+	localAddr := new_conn.LocalAddr().(*net.TCPAddr)
+	localPort := localAddr.Port
+	firstByte := byte(localPort >> 8)
+	secondByte := byte(localPort & 0xFF)
+	defer new_conn.Close()
+	response = []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, firstByte, secondByte}
+	fmt.Println(response)
+	_, err = conn.Write(response)
+	if err != nil {
+		return
+	}
+	defer new_conn.Close()
+	new_buffer := make([]byte, 102400)
+	remote_buffer := make([]byte, 102400)
+	go PassRecord(conn, new_conn, new_buffer, "From.txt")
+	PassModify(new_conn, conn, remote_buffer, "Receive.txt")
 }
 
 func main() {
