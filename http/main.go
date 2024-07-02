@@ -20,6 +20,8 @@ func PassRecord(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filena
 	}
 	defer file.Close()
 	for {
+		conn_receive.SetReadDeadline(time.Now().Add(3 * time.Second))
+		conn_send.SetWriteDeadline(time.Now().Add(3 * time.Second))
 		n, err := conn_receive.Read(buffer)
 		if err != nil {
 			return
@@ -63,6 +65,8 @@ func PassModify(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filena
 	}
 	defer file.Close()
 	for {
+		conn_receive.SetReadDeadline(time.Now().Add(3 * time.Second))
+		conn_send.SetWriteDeadline(time.Now().Add(3 * time.Second))
 		n, err := conn_receive.Read(buffer)
 		if err != nil {
 			return
