@@ -26,5 +26,7 @@ white.txt
 /multi-level_proxy1/main
 /multi-level_proxy2/main
 /multi-level_proxy3/main
+/application/main
 /UDP_associate/main
 /http_reversed/main
+/.vscode

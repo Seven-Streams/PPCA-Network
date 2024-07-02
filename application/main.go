@@ -112,7 +112,6 @@ func HandleConnectionProxyWithUDP(conn net.Conn) {
 }
 
 func Proxy() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	ln, err := net.Listen("tcp", "localhost:24625") //listen on port 24625
 	if err != nil {
 		panic(err)
@@ -123,13 +122,12 @@ func Proxy() {
 		if err != nil {
 			panic(err)
 		}
-		go HandleConnectionProxy(conn)
+		go HandleConnectionProxyWithUDP(conn)
 	}
 }
 
-func ProxySupportUDP() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	ln, err := net.Listen("tcp", "localhost:24625") //listen on port 24625
+func Proxy24626() {
+	ln, err := net.Listen("tcp", "localhost:24626") //listen on port 24625
 	if err != nil {
 		panic(err)
 	}
@@ -155,7 +153,6 @@ func HandleClient(conn net.Conn) {
 }
 
 func Client() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	ln, err := net.Listen("tcp", ":24626") //listen on port 24626
 	if err != nil {
 		panic(err)
@@ -283,7 +280,6 @@ func HandleClientHttp(conn net.Conn) {
 }
 
 func ClientHttp() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	ln, err := net.Listen("tcp", ":24626") //listen on port 24626
 	if err != nil {
 		panic(err)
@@ -335,12 +331,8 @@ func HandleClientIp(conn net.Conn) {
 	} else if buffer[3] == 0x03 {
 		host = string(buffer[5 : n-2])
 	} else if buffer[3] == 0x04 {
-		ipv6Bytes := buffer[4:20]
-		host = fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-			ipv6Bytes[0], ipv6Bytes[1], ipv6Bytes[2], ipv6Bytes[3],
-			ipv6Bytes[4], ipv6Bytes[5], ipv6Bytes[6], ipv6Bytes[7],
-			ipv6Bytes[8], ipv6Bytes[9], ipv6Bytes[10], ipv6Bytes[11],
-			ipv6Bytes[12], ipv6Bytes[13], ipv6Bytes[14], ipv6Bytes[15])
+		parsed := net.ParseIP(string(buffer[4:20]))
+		host = string(parsed)
 	}
 	if FileExists(blacklist) {
 		file, err := os.Open(blacklist)
@@ -393,7 +385,6 @@ func HandleClientIp(conn net.Conn) {
 }
 
 func ClientIp() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
 	ln, err := net.Listen("tcp", ":24626") //listen on port 24626
 	if err != nil {
 		panic(err)
@@ -468,12 +459,8 @@ func HandleClientPid(conn net.Conn) {
 	} else if buffer[3] == 0x03 {
 		host = string(buffer[5 : n-2])
 	} else if buffer[3] == 0x04 {
-		ipv6Bytes := buffer[4:20]
-		host = fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-			ipv6Bytes[0], ipv6Bytes[1], ipv6Bytes[2], ipv6Bytes[3],
-			ipv6Bytes[4], ipv6Bytes[5], ipv6Bytes[6], ipv6Bytes[7],
-			ipv6Bytes[8], ipv6Bytes[9], ipv6Bytes[10], ipv6Bytes[11],
-			ipv6Bytes[12], ipv6Bytes[13], ipv6Bytes[14], ipv6Bytes[15])
+		parsed := net.ParseIP(string(buffer[4:20]))
+		host = string(parsed)
 	}
 	if FileExists(blacklist) {
 		file, err := os.Open(blacklist)
@@ -526,7 +513,7 @@ func HandleClientPid(conn net.Conn) {
 }
 
 func ClientPid() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	ln, err := net.Listen("tcp", ":24626") //listen on port 24626
 	if err != nil {
 		panic(err)
@@ -671,7 +658,7 @@ func HandleClientTls(conn net.Conn) {
 }
 
 func ClientTls() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	ln, err := net.Listen("tcp", ":24626") //listen on port 24626
 	if err != nil {
 		panic(err)
@@ -893,10 +880,12 @@ func HandleConnectionKidnapper(conn net.Conn) {
 }
 
 func Kidnapper() {
+	fmt.Println("Please input the content which will be replaced.")
 	fmt.Scan(&to_replace)
+	fmt.Println("Please input the content which replace the previous input.")
 	fmt.Scan(&replace)
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	ln, err := net.Listen("tcp", "localhost:24625") //listen on port 24625
+
+	ln, err := net.Listen("tcp", "localhost:24626") //listen on port 24626
 	if err != nil {
 		panic(err)
 	}
@@ -991,8 +980,11 @@ func PassModify(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filena
 }
 
 func ModifyHttp() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	ln, err := net.Listen("tcp", "localhost:24625") //listen on port 24625
+	fmt.Println("Please input the content which will be replaced.")
+	fmt.Scan(&to_replace)
+	fmt.Println("Please input the content which replace the previous input.")
+	fmt.Scan(&replace)
+	ln, err := net.Listen("tcp", "localhost:24626") //listen on port 24626
 	if err != nil {
 		panic(err)
 	}
@@ -1099,7 +1091,7 @@ func HandleMulti1(conn net.Conn) {
 }
 
 func Multi1() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	ln, err := net.Listen("tcp", ":24626") //listen on port 24626
 	if err != nil {
 		panic(err)
@@ -1176,7 +1168,7 @@ func HandleMulti2(conn net.Conn) {
 }
 
 func Multi2() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	ln, err := net.Listen("tcp", "localhost:24625") //listen on port 24625
 	if err != nil {
 		panic(err)
@@ -1248,7 +1240,7 @@ func HandleMulti3(conn net.Conn) {
 }
 
 func Multi3() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
+
 	ln, err := net.Listen("tcp", "localhost:24627") //listen on port 24627
 	if err != nil {
 		panic(err)
@@ -1263,7 +1255,7 @@ func Multi3() {
 	}
 }
 
-func HandleReversed(conn net.Conn) {
+func HandleReversed(conn net.Conn, addr1 string, addr2 string) {
 	server1 := "../server1.txt"
 	server2 := "../server2.txt"
 	defer conn.Close()
@@ -1286,7 +1278,7 @@ func HandleReversed(conn net.Conn) {
 				return
 			}
 			if expr.MatchString(host) {
-				new_conn, err := net.Dial("tcp", "127.0.0.1:22471")
+				new_conn, err := net.Dial("tcp", addr1)
 				if err != nil {
 					return
 				}
@@ -1311,7 +1303,7 @@ func HandleReversed(conn net.Conn) {
 				return
 			}
 			if expr.MatchString(host) {
-				new_conn, err := net.Dial("tcp", "127.0.0.1:22471")
+				new_conn, err := net.Dial("tcp", addr2)
 				if err != nil {
 					return
 				}
@@ -1326,8 +1318,12 @@ func HandleReversed(conn net.Conn) {
 }
 
 func Reversed() {
-	runtime.GOMAXPROCS(runtime.NumCPU())
-	ln, err := net.Listen("tcp", ":24625") //listen on port 24625
+
+	fmt.Println("Please input the servers.")
+	var server1, server2 string
+	fmt.Scan(&server1)
+	fmt.Scan(&server2)
+	ln, err := net.Listen("tcp", ":24626") //listen on port 24626
 	if err != nil {
 		panic(err)
 	}
@@ -1337,7 +1333,7 @@ func Reversed() {
 		if err != nil {
 			panic(err)
 		}
-		go HandleReversed(conn)
+		go HandleReversed(conn, server1, server2)
 	}
 }
 
@@ -1401,5 +1397,99 @@ func HandleConnectionModifyHttp(conn net.Conn) {
 }
 
 func main() {
-
+	runtime.GOMAXPROCS(runtime.NumCPU())
+	var op string
+	fmt.Println("Please select the mode.")
+	fmt.Println("To run a proxy, input\"p\".")
+	fmt.Println("To run a forward client, input\"c\".")
+	fmt.Println("To run a reversed client, input\"r\".")
+	fmt.Println("To perform a TLS Hijacking, input\"j\".")
+	fmt.Println("To perform a Http Tampering, input\"t\".")
+	fmt.Println("To run a Multi-level proxy, input\"m\".")
+	fmt.Scan(&op)
+	println(op)
+	switch op {
+	case "p":
+		{
+			fmt.Println("The proxy runs on the port 24626.")
+			Proxy24626()
+		}
+	case "c":
+		{
+			fmt.Println("Please select the rules.")
+			fmt.Println("To use IP rules, input\"i\".")
+			fmt.Println("To use HTTP rules, input\"h\".")
+			fmt.Println("To use TLS rules, input\"t\".")
+			fmt.Println("To use Programs rules, input\"p\".")
+			fmt.Println("Input\"n\" if you don't want to use any rules.")
+			var rule string
+			fmt.Scan(&rule)
+			switch rule {
+			case "i":
+				{
+					fmt.Println("The files are \"black_ip.txt\" and \"white_ip.txt\"")
+					fmt.Println("The server runs on the port 24626.")
+					go Proxy()
+					ClientIp()
+				}
+			case "h":
+				{
+					fmt.Println("The files are \"black_http.txt\" and \"white_http.txt\".")
+					fmt.Println("The server runs on the port 24626.")
+					go Proxy()
+					ClientHttp()
+				}
+			case "t":
+				{
+					fmt.Println("The files are \"black_tls.txt\" and \"white_tls.txt\".")
+					fmt.Println("The server runs on the port 24626.")
+					go Proxy()
+					ClientTls()
+				}
+			case "p":
+				{
+					fmt.Println("The files are \"black_pid.txt\" and \"white_pid.txt\".")
+					fmt.Println("The server runs on the port 24626.")
+					go Proxy()
+					ClientPid()
+				}
+			case "n":
+				{
+					fmt.Println("The server runs on the port 24626.")
+					go Proxy()
+					Client()
+				}
+			default:
+				{
+					panic("Invalid input!")
+				}
+			}
+		}
+	case "r":
+		{
+			fmt.Println("The server runs on the port 26426.")
+			Reversed()
+		}
+	case "j":
+		{
+			fmt.Println("The server runs on the port 26426.")
+			Kidnapper()
+		}
+	case "t":
+		{
+			fmt.Println("The server runs on the port 26426.")
+			ModifyHttp()
+		}
+	case "m":
+		{
+			fmt.Println("The server runs on the port 26426.")
+			go Multi2()
+			go Multi3()
+			Multi1()
+		}
+	default:
+		{
+			panic("Wrong input!")
+		}
+	}
 }
