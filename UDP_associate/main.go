@@ -63,12 +63,8 @@ func handleConnection(conn net.Conn) {
 			host = string(buffer[5 : 5+length])
 			port = int(buffer[5+length])<<8 | int(buffer[6+length])
 		} else if buffer[3] == 0x04 {
-			ipv6Bytes := buffer[4:20]
-			host = fmt.Sprintf("%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x:%02x",
-				ipv6Bytes[0], ipv6Bytes[1], ipv6Bytes[2], ipv6Bytes[3],
-				ipv6Bytes[4], ipv6Bytes[5], ipv6Bytes[6], ipv6Bytes[7],
-				ipv6Bytes[8], ipv6Bytes[9], ipv6Bytes[10], ipv6Bytes[11],
-				ipv6Bytes[12], ipv6Bytes[13], ipv6Bytes[14], ipv6Bytes[15])
+			parsed := net.ParseIP(string(buffer[4:20]))
+			host = string(parsed)
 			port = int(buffer[20])<<8 | int(buffer[21])
 		}
 		target := fmt.Sprintf("%s:%d", host, port)
