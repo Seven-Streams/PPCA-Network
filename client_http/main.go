@@ -2,6 +2,7 @@ package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -11,12 +12,52 @@ import (
 	"strings"
 )
 
-func parseHTTPRequest(request string) (host string) {
+func parseHTTPSRequest(stream []byte) (host string) {
+	upper := len(stream)
+	ptr := 43
+	ptr += int(stream[ptr]) //std 75
+	ptr++                   // std 76
+	length := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
+	ptr += length           //std 108
+	ptr += 2                //std 110
+	ptr += int(stream[ptr]) // std 111
+	ptr++                   //std 112
+	ptr += 2                // std 114
+	for ptr < upper {
+		index := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
+		if index != 0 {
+			ptr += 2 // to the length bit.
+			part_len := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
+			ptr += part_len
+			ptr += 2
+		} else {
+			ptr += 7
+			host_len := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
+			host = string(stream[ptr:(ptr + host_len)])
+			return
+		}
+	}
+	return
+}
+
+func parseHTTPRequest(request string) (host string, err error) {
 	reader := bufio.NewReader(strings.NewReader(request))
-	_, _ = reader.ReadString('\n')
+	first_line, err := reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	http_reg, err := regexp.Compile("HTTP")
+	if err != nil {
+		return
+	}
+	if !http_reg.MatchString(first_line) {
+		err = errors.New("not HTTP")
+		return
+	}
 	for {
-		line, err := reader.ReadString('\n')
-		if err != nil || strings.TrimSpace(line) == "" {
+		line, err_1 := reader.ReadString('\n')
+		if err_1 != nil || strings.TrimSpace(line) == "" {
+			err = err_1
 			break
 		}
 		if len(line) <= 6 {
@@ -75,9 +116,12 @@ func handleClient(conn net.Conn) {
 	response := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0x00, 0x00}
 	conn.Write([]byte(response))
 	n, err = conn.Read(buffer)
-	host := parseHTTPRequest(string(buffer[:n]))
 	if err != nil {
 		return
+	}
+	host, err := parseHTTPRequest(string(buffer[:n]))
+	if err != nil {
+		host = parseHTTPSRequest(buffer[:n])
 	}
 	if fileExists(blacklist) {
 		file, err := os.Open(blacklist)

@@ -8,6 +8,7 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -167,12 +168,52 @@ func Client() {
 	}
 }
 
-func ParseHTTPRequest(request string) (host string) {
+func ParseHTTPSRequest(stream []byte) (host string) {
+	upper := len(stream)
+	ptr := 43
+	ptr += int(stream[ptr]) //std 75
+	ptr++                   // std 76
+	length := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
+	ptr += length           //std 108
+	ptr += 2                //std 110
+	ptr += int(stream[ptr]) // std 111
+	ptr++                   //std 112
+	ptr += 2                // std 114
+	for ptr < upper {
+		index := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
+		if index != 0 {
+			ptr += 2 // to the length bit.
+			part_len := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
+			ptr += part_len
+			ptr += 2
+		} else {
+			ptr += 7
+			host_len := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
+			host = string(stream[ptr:(ptr + host_len)])
+			return
+		}
+	}
+	return
+}
+
+func ParseHTTPRequest(request string) (host string, err error) {
 	reader := bufio.NewReader(strings.NewReader(request))
-	_, _ = reader.ReadString('\n')
+	first_line, err := reader.ReadString('\n')
+	if err != nil {
+		return
+	}
+	http_reg, err := regexp.Compile("HTTP")
+	if err != nil {
+		return
+	}
+	if !http_reg.MatchString(first_line) {
+		err = errors.New("not HTTP")
+		return
+	}
 	for {
-		line, err := reader.ReadString('\n')
-		if err != nil || strings.TrimSpace(line) == "" {
+		line, err_1 := reader.ReadString('\n')
+		if err_1 != nil || strings.TrimSpace(line) == "" {
+			err = err_1
 			break
 		}
 		if len(line) <= 6 {
@@ -186,10 +227,9 @@ func ParseHTTPRequest(request string) (host string) {
 	}
 	return
 }
-
 func HandleClientHttp(conn net.Conn) {
-	whitelist := "../white_http.txt"
-	blacklist := "../black_http.txt"
+	whitelist := "../white.txt"
+	blacklist := "../black.txt"
 	defer conn.Close()
 	remote_conn, err := net.Dial("tcp", "127.0.0.1:24625") //dial to the server.
 	if err != nil {
@@ -222,9 +262,12 @@ func HandleClientHttp(conn net.Conn) {
 	response := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0x00, 0x00}
 	conn.Write([]byte(response))
 	n, err = conn.Read(buffer)
-	host := ParseHTTPRequest(string(buffer[:n]))
 	if err != nil {
 		return
+	}
+	host, err := ParseHTTPRequest(string(buffer[:n]))
+	if err != nil {
+		host = ParseHTTPSRequest(buffer[:n])
 	}
 	if FileExists(blacklist) {
 		file, err := os.Open(blacklist)
@@ -528,34 +571,6 @@ func ClientPid() {
 	}
 }
 
-func ParseHTTPSRequest(stream []byte) (host string) {
-	upper := len(stream)
-	ptr := 43
-	ptr += int(stream[ptr]) //std 75
-	ptr++                   // std 76
-	length := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
-	ptr += length           //std 108
-	ptr += 2                //std 110
-	ptr += int(stream[ptr]) // std 111
-	ptr++                   //std 112
-	ptr += 2                // std 114
-	for ptr < upper {
-		index := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
-		if index != 0 {
-			ptr += 2 // to the length bit.
-			part_len := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
-			ptr += part_len
-			ptr += 2
-		} else {
-			ptr += 7
-			host_len := (int(stream[ptr]) << 8) | (int(stream[ptr+1]))
-			host = string(stream[ptr:(ptr + host_len)])
-			return
-		}
-	}
-	return
-}
-
 func FileExists(filename string) bool {
 	file, err := os.Open(filename)
 	if os.IsNotExist(err) {
@@ -563,114 +578,6 @@ func FileExists(filename string) bool {
 	}
 	defer file.Close()
 	return err == nil
-}
-
-func HandleClientTls(conn net.Conn) {
-	whitelist := "../white_tls.txt"
-	blacklist := "../black_tls.txt"
-	defer conn.Close()
-	remote_conn, err := net.Dial("tcp", "localhost:24625") //dial to the server.
-	if err != nil {
-		return
-	}
-	buffer := make([]byte, 10240)
-	remote_buffer := make([]byte, 10240)
-	n, err := conn.Read(buffer) //the first pack.
-	if err != nil {
-		return
-	}
-	_, err = remote_conn.Write(buffer[:n]) //pass the first pack.
-	if err != nil {
-		return
-	}
-	n, err = remote_conn.Read(remote_buffer) //get the first reply.
-	if err != nil {
-		return
-	}
-	_, err = conn.Write(remote_buffer[:n]) //pass the first reply.
-	if err != nil {
-		return
-	}
-	n, err = conn.Read(buffer)
-	if err != nil {
-		return
-	}
-	request := make([]byte, n)
-	copy(request, buffer[:n])
-	response := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0x00, 0x00}
-	conn.Write([]byte(response))
-	n, err = conn.Read(buffer)
-	host := ParseHTTPSRequest(buffer[:n])
-	if err != nil {
-		return
-	}
-	if FileExists(blacklist) {
-		file, err := os.Open(blacklist)
-		if err != nil {
-			return
-		}
-		defer file.Close()
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			expr, err := regexp.Compile(scanner.Text())
-			if err != nil {
-				return
-			}
-			if expr.MatchString(host) {
-				return
-			}
-		}
-	}
-	if FileExists(whitelist) {
-		file, err := os.Open(whitelist)
-		if err != nil {
-			return
-		}
-		defer file.Close()
-		scanner := bufio.NewScanner(file)
-		for scanner.Scan() {
-			expr, err := regexp.Compile(scanner.Text())
-			if err != nil {
-				return
-			}
-			if expr.MatchString(host) {
-				remote_conn.Close()
-				port := int(buffer[n-2])<<8 | int(buffer[n-1])
-
-				remote_conn, err = net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
-				if err != nil {
-					return
-				}
-				defer remote_conn.Close()
-				remote_conn.Write(buffer[:n])
-				go io.Copy(remote_conn, conn)
-				io.Copy(conn, remote_conn)
-				return
-			}
-		}
-	}
-	remote_conn.Write(request)      //To send the true request.
-	remote_conn.Read(remote_buffer) //Ignore the reply.
-	defer remote_conn.Close()
-	remote_conn.Write(buffer[:n])
-	go io.Copy(remote_conn, conn)
-	io.Copy(conn, remote_conn)
-}
-
-func ClientTls() {
-
-	ln, err := net.Listen("tcp", ":24626") //listen on port 24626
-	if err != nil {
-		panic(err)
-	}
-	defer ln.Close()
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			panic(err)
-		}
-		go HandleClientTls(conn)
-	}
 }
 
 func Pass(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filename string) {
@@ -1264,7 +1171,10 @@ func HandleReversed(conn net.Conn, addr1 string, addr2 string) {
 	if err != nil {
 		return
 	}
-	host := ParseHTTPRequest(string(buffer[:n]))
+	host, err := ParseHTTPRequest(string(buffer[:n]))
+	if err != nil {
+		host = ParseHTTPSRequest(buffer[:n])
+	}
 	if FileExists(server1) {
 		file, err := os.Open(server1)
 		if err != nil {
@@ -1417,7 +1327,7 @@ func main() {
 		{
 			fmt.Println("Please select the rules.")
 			fmt.Println("To use IP rules, input\"i\".")
-			fmt.Println("To use HTTP rules, input\"h\".")
+			fmt.Println("To use HTTP and HTTPS rules, input\"h\".")
 			fmt.Println("To use TLS rules, input\"t\".")
 			fmt.Println("To use Programs rules, input\"p\".")
 			fmt.Println("Input\"n\" if you don't want to use any rules.")
@@ -1437,13 +1347,6 @@ func main() {
 					fmt.Println("The server runs on the port 24626.")
 					go Proxy()
 					ClientHttp()
-				}
-			case "t":
-				{
-					fmt.Println("The files are \"black_tls.txt\" and \"white_tls.txt\".")
-					fmt.Println("The server runs on the port 24626.")
-					go Proxy()
-					ClientTls()
 				}
 			case "p":
 				{
