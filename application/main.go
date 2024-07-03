@@ -692,6 +692,7 @@ func CreateMyCert(domain string) {
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
 		BasicConstraintsValid: true,
+		DNSNames:              []string{domain},
 	}
 	certBytes, err := x509.CreateCertificate(rand.Reader, &certTemplate, caCert, csr.PublicKey, caKey)
 	if err != nil {
