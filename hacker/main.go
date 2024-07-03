@@ -75,7 +75,7 @@ func MyTls(ln net.Listener, config *tls.Config) {
 	}
 }
 
-func CreateMyCert(domain string) {
+func CreateMyCert(domain string) (cer tls.Certificate) {
 	private_key_file, err := os.ReadFile("domain.key")
 	if err != nil {
 		return
@@ -111,7 +111,6 @@ func CreateMyCert(domain string) {
 	if err != nil {
 		return
 	}
-
 	caKeyPEM, err := os.ReadFile("rootCA.key")
 	if err != nil {
 		return
@@ -142,15 +141,11 @@ func CreateMyCert(domain string) {
 		Type:  "CERTIFICATE",
 		Bytes: certBytes,
 	}
-	certFile, err := os.OpenFile("domain.crt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	cer, err = tls.X509KeyPair(pem.EncodeToMemory(certPEMBlock), private_key_file)
 	if err != nil {
 		panic(err)
 	}
-	defer certFile.Close()
-	err = pem.Encode(certFile, certPEMBlock)
-	if err != nil {
-		return
-	}
+	return
 }
 
 func handleConnection(conn net.Conn) {
@@ -189,26 +184,14 @@ func handleConnection(conn net.Conn) {
 		parsed := net.ParseIP(string(buffer[4:20]))
 		host = string(parsed)
 	}
-	port := int(buffer[n-2])<<8 | int(buffer[n-1])
-	target := string(fmt.Sprintf("%s:%d\n", host, port))
-	CreateMyCert(host)
-	cer, err := tls.LoadX509KeyPair("../hacker/domain.crt", "../hacker/domain.key")
-	if err != nil {
-		log.Fatal(err)
-	}
+	cer := CreateMyCert(host)
 	config := &tls.Config{Certificates: []tls.Certificate{cer}}
 	ln, err := tls.Listen("tcp", ":0", config)
 	if err != nil {
 		log.Fatal(err)
 	}
 	go MyTls(ln, config)
-	file, err := os.OpenFile("../target_address.txt", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0666)
-	if err != nil {
-		return
-	}
-	file.Write([]byte(target))
-	file.Close()
-	time.Sleep(1 * time.Second)
+	time.Sleep(100 * time.Millisecond)
 	new_conn, err := net.Dial("tcp", ln.Addr().String())
 	if err != nil {
 		return
