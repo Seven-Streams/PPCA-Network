@@ -42,19 +42,9 @@ func Pass(conn_receive net.Conn, conn_send net.Conn, buffer []byte, filename str
 	}
 }
 
-func handleConnection2(conn net.Conn, config *tls.Config) {
+func handleConnection2(conn net.Conn, config *tls.Config, domain string) {
 	defer conn.Close()
-	file, err := os.OpenFile("../target_address.txt", os.O_RDONLY, 0666)
-	if err != nil {
-		return
-	}
-	target := make([]byte, 1024)
-	n, err := file.Read(target)
-	if err != nil {
-		return
-	}
-	file.Close()
-	remote_conn, err := tls.Dial("tcp", string(target[:(n-1)]), config)
+	remote_conn, err := tls.Dial("tcp", domain, config)
 	if err != nil {
 		return
 	}
@@ -65,17 +55,17 @@ func handleConnection2(conn net.Conn, config *tls.Config) {
 	Pass(remote_conn, conn, remote_buffer, "Receive.txt")
 }
 
-func MyTls(ln net.Listener, config *tls.Config) {
+func MyTls(ln net.Listener, config *tls.Config, domain string) {
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
 			log.Println(err)
 		}
-		go handleConnection2(conn, config)
+		go handleConnection2(conn, config, domain)
 	}
 }
 
-func CreateMyCert(domain string) (cer tls.Certificate) {
+func CreateMyCert(domain string) {
 	private_key_file, err := os.ReadFile("domain.key")
 	if err != nil {
 		return
@@ -111,6 +101,7 @@ func CreateMyCert(domain string) (cer tls.Certificate) {
 	if err != nil {
 		return
 	}
+
 	caKeyPEM, err := os.ReadFile("rootCA.key")
 	if err != nil {
 		return
@@ -131,7 +122,6 @@ func CreateMyCert(domain string) (cer tls.Certificate) {
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
 		BasicConstraintsValid: true,
-		DNSNames:              []string{domain},
 	}
 	certBytes, err := x509.CreateCertificate(rand.Reader, &certTemplate, caCert, csr.PublicKey, caKey)
 	if err != nil {
@@ -141,11 +131,15 @@ func CreateMyCert(domain string) (cer tls.Certificate) {
 		Type:  "CERTIFICATE",
 		Bytes: certBytes,
 	}
-	cer, err = tls.X509KeyPair(pem.EncodeToMemory(certPEMBlock), private_key_file)
+	certFile, err := os.OpenFile("domain.crt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
 	if err != nil {
 		panic(err)
 	}
-	return
+	defer certFile.Close()
+	err = pem.Encode(certFile, certPEMBlock)
+	if err != nil {
+		return
+	}
 }
 
 func handleConnection(conn net.Conn) {
@@ -184,14 +178,20 @@ func handleConnection(conn net.Conn) {
 		parsed := net.ParseIP(string(buffer[4:20]))
 		host = string(parsed)
 	}
-	cer := CreateMyCert(host)
+	port := int(buffer[n-2])<<8 | int(buffer[n-1])
+	target := string(fmt.Sprintf("%s:%d", host, port))
+	CreateMyCert(host)
+	cer, err := tls.LoadX509KeyPair("../hacker/domain.crt", "../hacker/domain.key")
+	if err != nil {
+		log.Fatal(err)
+	}
 	config := &tls.Config{Certificates: []tls.Certificate{cer}}
 	ln, err := tls.Listen("tcp", ":0", config)
 	if err != nil {
 		log.Fatal(err)
 	}
-	go MyTls(ln, config)
-	time.Sleep(100 * time.Millisecond)
+	go MyTls(ln, config, target)
+	time.Sleep(1 * time.Second)
 	new_conn, err := net.Dial("tcp", ln.Addr().String())
 	if err != nil {
 		return
