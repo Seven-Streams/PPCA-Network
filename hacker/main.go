@@ -65,10 +65,10 @@ func MyTls(ln net.Listener, config *tls.Config, domain string) {
 	}
 }
 
-func CreateMyCert(domain string) {
+func CreateMyCert(domain string) (cer tls.Certificate) {
 	private_key_file, err := os.ReadFile("domain.key")
 	if err != nil {
-		return
+		panic(err)
 	}
 	private_key_raw, _ := pem.Decode(private_key_file)
 	private_key, err := x509.ParsePKCS8PrivateKey(private_key_raw.Bytes)
@@ -79,40 +79,38 @@ func CreateMyCert(domain string) {
 		Subject: pkix.Name{
 			CommonName: domain,
 		},
-		DNSNames: []string{domain},
 	}
 	csrBytes, err := x509.CreateCertificateRequest(rand.Reader, &csrTemplate, private_key)
 	if err != nil {
-		return
+		panic(err)
 	}
 	csr, err := x509.ParseCertificateRequest(csrBytes)
 	if err != nil {
-		return
+		panic(err)
 	}
 	caCertPEM, err := os.ReadFile("rootCA.crt")
 	if err != nil {
-		return
+		panic(err)
 	}
 	caCertBlock, _ := pem.Decode(caCertPEM)
 	if caCertBlock == nil {
-		return
+		panic(err)
 	}
 	caCert, err := x509.ParseCertificate(caCertBlock.Bytes)
 	if err != nil {
-		return
+		panic(err)
 	}
-
 	caKeyPEM, err := os.ReadFile("rootCA.key")
 	if err != nil {
-		return
+		panic(err)
 	}
 	caKeyBlock, _ := pem.Decode(caKeyPEM)
 	if caKeyBlock == nil {
-		return
+		panic(err)
 	}
 	caKey, err := x509.ParsePKCS8PrivateKey(caKeyBlock.Bytes)
 	if err != nil {
-		return
+		panic(err)
 	}
 	certTemplate := x509.Certificate{
 		SerialNumber: big.NewInt(1),
@@ -122,24 +120,19 @@ func CreateMyCert(domain string) {
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().Add(365 * 24 * time.Hour),
 		BasicConstraintsValid: true,
+		DNSNames:              []string{domain},
 	}
 	certBytes, err := x509.CreateCertificate(rand.Reader, &certTemplate, caCert, csr.PublicKey, caKey)
 	if err != nil {
 		panic(err)
 	}
-	certPEMBlock := &pem.Block{
-		Type:  "CERTIFICATE",
-		Bytes: certBytes,
-	}
-	certFile, err := os.OpenFile("domain.crt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0666)
+	certPEM := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
+	pri := pem.EncodeToMemory(private_key_raw)
+	cer, err = tls.X509KeyPair(certPEM, pri)
 	if err != nil {
 		panic(err)
 	}
-	defer certFile.Close()
-	err = pem.Encode(certFile, certPEMBlock)
-	if err != nil {
-		return
-	}
+	return cer
 }
 
 func handleConnection(conn net.Conn) {
@@ -180,11 +173,7 @@ func handleConnection(conn net.Conn) {
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
 	target := string(fmt.Sprintf("%s:%d", host, port))
-	CreateMyCert(host)
-	cer, err := tls.LoadX509KeyPair("../hacker/domain.crt", "../hacker/domain.key")
-	if err != nil {
-		log.Fatal(err)
-	}
+	cer := CreateMyCert(host)
 	config := &tls.Config{Certificates: []tls.Certificate{cer}}
 	ln, err := tls.Listen("tcp", ":0", config)
 	if err != nil {
