@@ -654,7 +654,7 @@ func CreateMyCert(domain string) (cer tls.Certificate) {
 	}
 	caCertBlock, _ := pem.Decode(caCertPEM)
 	if caCertBlock == nil {
-		panic(err)
+		panic(1)
 	}
 	caCert, err := x509.ParseCertificate(caCertBlock.Bytes)
 	if err != nil {
@@ -666,7 +666,7 @@ func CreateMyCert(domain string) (cer tls.Certificate) {
 	}
 	caKeyBlock, _ := pem.Decode(caKeyPEM)
 	if caKeyBlock == nil {
-		panic(err)
+		panic(1)
 	}
 	caKey, err := x509.ParsePKCS8PrivateKey(caKeyBlock.Bytes)
 	if err != nil {

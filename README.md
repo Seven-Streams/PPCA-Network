@@ -1,6 +1,7 @@
 # PPCA-Network
 
 - [x] socks5简单代理服务器
+- [x] 基于iptables的超超超简易透明代理
 - [x] 代理客户端
   - [x] ip分流规则
   - [x] http分流规则

@@ -36,4 +36,4 @@ white.txt
 /UDP_associate/main
 /http_reversed/main
 /.vscode
-/tun/main
+/transparent_proxy/main
