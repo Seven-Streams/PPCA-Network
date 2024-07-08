@@ -4,8 +4,9 @@
 /client_ip/main
 /client_http/main
 /client_tls/main
+/transparent_proxy/main
 white.txt
-black.txtW
+black.txt
 /hacker/rootCA.crt
 /hacker/rootCA.key
 /hacker/domain.ext
@@ -36,4 +37,3 @@ white.txt
 /UDP_associate/main
 /http_reversed/main
 /.vscode
-/transparent_proxy/main
