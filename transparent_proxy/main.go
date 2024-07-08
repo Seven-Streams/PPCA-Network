@@ -64,8 +64,7 @@ func handleConnection(conn net.Conn) {
 }
 
 func main() {
-	// 创建TCP套接字
-	listener, err := net.Listen("tcp", "localhost:24075") // 使用0让系统自动选择端口
+	listener, err := net.Listen("tcp", "localhost:24075")
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
 	}
