@@ -12,8 +12,6 @@ type Combind struct {
 	port int
 }
 
-var mapping = make(map[Combind]bool)
-
 func handleConnection(conn net.Conn) {
 	defer conn.Close()
 	buffer := make([]byte, 102400)
@@ -40,6 +38,14 @@ func handleConnection(conn net.Conn) {
 	if buffer[2] != 0x00 {
 		panic("Unsupported reserved field")
 	}
+	addr, err := net.ResolveUDPAddr("udp", ":0")
+	if err != nil {
+		return
+	}
+	udpln, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return
+	}
 	var host string
 	var port int
 	if buffer[3] == 0x01 {
@@ -56,20 +62,14 @@ func handleConnection(conn net.Conn) {
 		port = int(buffer[20])<<8 | int(buffer[21])
 	}
 	from := &Combind{host: host, port: port}
-	mapping[*from] = true
-	response2 := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0x5e, 0x0b}
+	go udplisten(*udpln, *from)
+	response2 := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, byte(addr.Port >> 8), byte(addr.Port & 0xff)}
 	conn.Write(response2)
 }
 
-func udplisten() {
-	addr, err := net.ResolveUDPAddr("udp", ":24079")
-	if err != nil {
-		return
-	}
-	udpln, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		return
-	}
+func udplisten(udpln net.UDPConn, source Combind) {
+	mapping := make(map[Combind]bool)
+	mapping[source] = true
 	defer udpln.Close()
 	buffer := make([]byte, 102400)
 	for {

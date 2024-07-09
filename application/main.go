@@ -27,19 +27,12 @@ type Combind struct {
 	port int
 }
 
-var mapping = make(map[Combind]bool)
 var replace string
 var to_replace string
 
-func udplisten() {
-	addr, err := net.ResolveUDPAddr("udp", ":24079")
-	if err != nil {
-		return
-	}
-	udpln, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		return
-	}
+func udplisten(udpln net.UDPConn, source Combind) {
+	mapping := make(map[Combind]bool)
+	mapping[source] = true
 	defer udpln.Close()
 	buffer := make([]byte, 102400)
 	for {
@@ -176,7 +169,6 @@ func HandleConnectionProxyWithUDP(conn net.Conn) {
 }
 
 func Proxy() {
-	go udplisten()
 	ln, err := net.Listen("tcp", "localhost:24625") //listen on port 24625
 	if err != nil {
 		panic(err)
@@ -941,6 +933,14 @@ func ModifyHttp() {
 }
 
 func HandleUDP(conn net.Conn, buffer []byte, n int) {
+	addr, err := net.ResolveUDPAddr("udp", ":0")
+	if err != nil {
+		return
+	}
+	udpln, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return
+	}
 	var host string
 	var port int
 	if buffer[3] == 0x01 {
@@ -957,8 +957,8 @@ func HandleUDP(conn net.Conn, buffer []byte, n int) {
 		port = int(buffer[20])<<8 | int(buffer[21])
 	}
 	from := &Combind{host: host, port: port}
-	mapping[*from] = true
-	response2 := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0x5e, 0x0b}
+	go udplisten(*udpln, *from)
+	response2 := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, byte(addr.Port >> 8), byte(addr.Port & 0xff)}
 	conn.Write(response2)
 }
 
