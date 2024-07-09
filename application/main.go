@@ -22,9 +22,72 @@ import (
 	"time"
 )
 
+type Combind struct {
+	host string
+	port int
+}
+
+var mapping = make(map[Combind]bool)
 var replace string
 var to_replace string
 
+func udplisten() {
+	addr, err := net.ResolveUDPAddr("udp", ":24079")
+	if err != nil {
+		return
+	}
+	udpln, err := net.ListenUDP("udp", addr)
+	if err != nil {
+		return
+	}
+	defer udpln.Close()
+	buffer := make([]byte, 102400)
+	for {
+		n, from, err := udpln.ReadFromUDP(buffer)
+		if err != nil {
+			return
+		}
+		combinded := &Combind{host: from.IP.String(), port: from.Port}
+		to_update := []byte{from.IP[0], from.IP[1], from.IP[2], from.IP[3], byte(from.Port >> 8), byte(from.Port & 0xff)}
+		_, exist := mapping[*combinded]
+		if !exist {
+			continue
+		}
+		var host string
+		var port int
+		if buffer[3] == 0x01 {
+			ip := buffer[4:8]
+			host = fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+			port = int(buffer[8])<<8 | int(buffer[9])
+			buffer = bytes.Replace(buffer, buffer[4:10], to_update, 1)
+		} else if buffer[3] == 0x03 {
+			length := int(buffer[4])
+			host = string(buffer[5 : 5+length])
+			port = int(buffer[5+length])<<8 | int(buffer[6+length])
+			buffer[3] = 0x01
+			buffer = bytes.Replace(buffer, buffer[4:(7+length)], to_update, 1)
+		} else if buffer[3] == 0x04 {
+			parsed := net.ParseIP(string(buffer[4:20]))
+			host = string(parsed)
+			port = int(buffer[20])<<8 | int(buffer[21])
+			buffer[3] = 0x01
+			buffer = bytes.Replace(buffer, buffer[4:22], to_update, 1)
+		}
+		target := fmt.Sprintf("%s:%d", host, port)
+		resolved_addr, err := net.ResolveUDPAddr("udp", target)
+		to := &Combind{host: host, port: port}
+		mapping[*to] = true
+		if err != nil {
+			return
+		}
+		remote_conn, err := net.DialUDP("udp", nil, resolved_addr)
+		if err != nil {
+			return
+		}
+		defer remote_conn.Close()
+		remote_conn.Write(buffer[:n])
+	}
+}
 func HandleConnectionProxy(conn net.Conn) {
 	defer conn.Close()
 	buffer := make([]byte, 1024)
@@ -105,7 +168,7 @@ func HandleConnectionProxyWithUDP(conn net.Conn) {
 	}
 	if buffer[1] == 0x01 {
 		HandleTCP(conn, buffer, n)
-	} else if buffer[3] == 0x03 {
+	} else if buffer[1] == 0x03 {
 		HandleUDP(conn, buffer, n)
 	} else {
 		panic("Unsupported method.")
@@ -113,6 +176,7 @@ func HandleConnectionProxyWithUDP(conn net.Conn) {
 }
 
 func Proxy() {
+	go udplisten()
 	ln, err := net.Listen("tcp", "localhost:24625") //listen on port 24625
 	if err != nil {
 		panic(err)
@@ -877,53 +941,25 @@ func ModifyHttp() {
 }
 
 func HandleUDP(conn net.Conn, buffer []byte, n int) {
-	addr, err := net.ResolveUDPAddr("udp", ":0")
-	if err != nil {
-		return
+	var host string
+	var port int
+	if buffer[3] == 0x01 {
+		ip := buffer[4:8]
+		host = fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+		port = int(buffer[8])<<8 | int(buffer[9])
+	} else if buffer[3] == 0x03 {
+		length := int(buffer[4])
+		host = string(buffer[5 : 5+length])
+		port = int(buffer[5+length])<<8 | int(buffer[6+length])
+	} else if buffer[3] == 0x04 {
+		parsed := net.ParseIP(string(buffer[4:20]))
+		host = string(parsed)
+		port = int(buffer[20])<<8 | int(buffer[21])
 	}
-	udpln, err := net.ListenUDP("udp", addr)
-	if err != nil {
-		return
-	}
-	localAddr := udpln.LocalAddr().(*net.TCPAddr)
-	localPort := localAddr.Port
-	firstByte := byte(localPort >> 8)
-	secondByte := byte(localPort & 0xFF)
-	response2 := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, firstByte, secondByte}
+	from := &Combind{host: host, port: port}
+	mapping[*from] = true
+	response2 := []byte{0x05, 0x00, 0x00, 0x01, 0x7f, 0x00, 0x00, 0x01, 0x5e, 0x0b}
 	conn.Write(response2)
-	defer udpln.Close()
-	for {
-		n, _, err := udpln.ReadFromUDP(buffer)
-		if err != nil {
-			return
-		}
-		var host string
-		var port int
-		if buffer[3] == 0x01 {
-			ip := buffer[4:8]
-			host = fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
-			port = int(buffer[4])<<8 | int(buffer[5])
-		} else if buffer[3] == 0x03 {
-			length := int(buffer[4])
-			host = string(buffer[5 : 5+length])
-			port = int(buffer[5+length])<<8 | int(buffer[6+length])
-		} else if buffer[3] == 0x04 {
-			parsed := net.ParseIP(string(buffer[4:20]))
-			host = string(parsed)
-			port = int(buffer[20])<<8 | int(buffer[21])
-		}
-		target := fmt.Sprintf("%s:%d", host, port)
-		resolved_addr, err := net.ResolveUDPAddr("udp", target)
-		if err != nil {
-			return
-		}
-		remote_conn, err := net.DialUDP("udp", nil, resolved_addr)
-		if err != nil {
-			return
-		}
-		defer remote_conn.Close()
-		remote_conn.Write(buffer[:n])
-	}
 }
 
 func HandleTCP(conn net.Conn, buffer []byte, n int) {
