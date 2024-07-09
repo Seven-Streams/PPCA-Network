@@ -14,16 +14,16 @@ func getOriginalDst(clientConn *net.TCPConn) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
-	defer clientConnFile.Close()
-
 	fd := int(clientConnFile.Fd())
 	var addr unix.RawSockaddrInet4
 	size := uint32(unsafe.Sizeof(addr))
 	_, _, errno := unix.Syscall6(unix.SYS_GETSOCKOPT, uintptr(fd), uintptr(unix.SOL_IP), uintptr(unix.SO_ORIGINAL_DST), uintptr(unsafe.Pointer(&addr)), uintptr(unsafe.Pointer(&size)), 0)
+	defer clientConnFile.Close()
 	if errno != 0 {
 		return []byte{}, errno
 	}
-	return []byte{addr.Addr[0], addr.Addr[1], addr.Addr[2], addr.Addr[3], 0, byte(addr.Port >> 8)}, nil
+	port := int(addr.Port)
+	return []byte{addr.Addr[0], addr.Addr[1], addr.Addr[2], addr.Addr[3], byte(port), byte(port >> 8)}, nil
 }
 
 func handleConnection(conn net.Conn) {
