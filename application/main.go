@@ -49,16 +49,22 @@ func udplisten(udpln net.UDPConn, source Combind) {
 				ip := buffer[4:8]
 				host = fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
 				port = int(buffer[8])<<8 | int(buffer[9])
+				buffer = buffer[10:n]
+				n -= 10
 			} else if buffer[3] == 0x03 {
 				length := int(buffer[4])
 				host = string(buffer[5 : 5+length])
 				port = int(buffer[5+length])<<8 | int(buffer[6+length])
 				buffer[3] = 0x01
+				buffer = buffer[7+length : n]
+				n -= (7 + length)
 			} else if buffer[3] == 0x04 {
 				parsed := net.ParseIP(string(buffer[4:20]))
 				host = string(parsed)
 				port = int(buffer[20])<<8 | int(buffer[21])
 				buffer[3] = 0x01
+				buffer = buffer[22:n]
+				n -= 22
 			}
 			target := fmt.Sprintf("%s:%d", host, port)
 			resolved_addr, err := net.ResolveUDPAddr("udp", target)
