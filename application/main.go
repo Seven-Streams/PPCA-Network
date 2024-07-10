@@ -35,6 +35,8 @@ func udplisten(udpln net.UDPConn, source Combind) {
 	defer udpln.Close()
 	buffer := make([]byte, 102400)
 	for {
+		ddl := time.Now().Add(60 * time.Second)
+		udpln.SetDeadline(ddl)
 		n, from, err := udpln.ReadFromUDP(buffer)
 		if err != nil {
 			return
