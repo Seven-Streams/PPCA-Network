@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"runtime"
@@ -69,7 +68,6 @@ func handleConnection(conn net.Conn) {
 
 func udplisten(udpln net.UDPConn, source Combind) {
 	mapping := make(map[Combind]bool)
-	mapping[source] = true
 	defer udpln.Close()
 	buffer := make([]byte, 102400)
 	for {
@@ -78,44 +76,67 @@ func udplisten(udpln net.UDPConn, source Combind) {
 			return
 		}
 		combinded := &Combind{host: from.IP.String(), port: from.Port}
-		to_update := []byte{from.IP[0], from.IP[1], from.IP[2], from.IP[3], byte(from.Port >> 8), byte(from.Port & 0xff)}
-		_, exist := mapping[*combinded]
-		if !exist {
-			continue
+		if combinded == &source {
+			var host string
+			var port int
+			if buffer[3] == 0x01 {
+				ip := buffer[4:8]
+				host = fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
+				port = int(buffer[8])<<8 | int(buffer[9])
+			} else if buffer[3] == 0x03 {
+				length := int(buffer[4])
+				host = string(buffer[5 : 5+length])
+				port = int(buffer[5+length])<<8 | int(buffer[6+length])
+				buffer[3] = 0x01
+			} else if buffer[3] == 0x04 {
+				parsed := net.ParseIP(string(buffer[4:20]))
+				host = string(parsed)
+				port = int(buffer[20])<<8 | int(buffer[21])
+				buffer[3] = 0x01
+			}
+			target := fmt.Sprintf("%s:%d", host, port)
+			resolved_addr, err := net.ResolveUDPAddr("udp", target)
+			to := &Combind{host: host, port: port}
+			mapping[*to] = true
+			if err != nil {
+				return
+			}
+			remote_conn, err := net.DialUDP("udp", nil, resolved_addr)
+			if err != nil {
+				return
+			}
+			defer remote_conn.Close()
+			remote_conn.Write(buffer[:n])
+		} else {
+			if buffer[0] == 0x00 && buffer[1] == 0x00 && (buffer[3] == 0x03 || buffer[3] == 0x01 || buffer[3] == 0x04) {
+				continue
+			} else {
+				if from.IP.To4() != nil {
+					host := from.IP.To4()
+					port := from.Port
+					header := []byte{0x00, 0x00, 0x00, 0x01, host[0], host[1], host[2], host[3], byte(port >> 8), byte(port & 0xff)}
+					buffer = append(header, buffer...)
+					n += 10
+				} else {
+					host := from.IP.To16()
+					port := from.Port
+					header := []byte{0x00, 0x00, 0x00, 0x04, host[0], host[1], host[2], host[3], host[4], host[5], host[6], host[7], host[8], host[9], host[10], host[11], host[12], host[13], host[14], host[15], byte(port >> 8), byte(port & 0xff)}
+					buffer = append(header, buffer...)
+					n += 22
+				}
+				target := fmt.Sprintf("%s:%d", source.host, source.port)
+				resolved_addr, err := net.ResolveUDPAddr("udp", target)
+				if err != nil {
+					return
+				}
+				remote_conn, err := net.DialUDP("udp", nil, resolved_addr)
+				if err != nil {
+					return
+				}
+				defer remote_conn.Close()
+				remote_conn.Write(buffer[:n])
+			}
 		}
-		var host string
-		var port int
-		if buffer[3] == 0x01 {
-			ip := buffer[4:8]
-			host = fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
-			port = int(buffer[8])<<8 | int(buffer[9])
-			buffer = bytes.Replace(buffer, buffer[4:10], to_update, 1)
-		} else if buffer[3] == 0x03 {
-			length := int(buffer[4])
-			host = string(buffer[5 : 5+length])
-			port = int(buffer[5+length])<<8 | int(buffer[6+length])
-			buffer[3] = 0x01
-			buffer = bytes.Replace(buffer, buffer[4:(7+length)], to_update, 1)
-		} else if buffer[3] == 0x04 {
-			parsed := net.ParseIP(string(buffer[4:20]))
-			host = string(parsed)
-			port = int(buffer[20])<<8 | int(buffer[21])
-			buffer[3] = 0x01
-			buffer = bytes.Replace(buffer, buffer[4:22], to_update, 1)
-		}
-		target := fmt.Sprintf("%s:%d", host, port)
-		resolved_addr, err := net.ResolveUDPAddr("udp", target)
-		to := &Combind{host: host, port: port}
-		mapping[*to] = true
-		if err != nil {
-			return
-		}
-		remote_conn, err := net.DialUDP("udp", nil, resolved_addr)
-		if err != nil {
-			return
-		}
-		defer remote_conn.Close()
-		remote_conn.Write(buffer[:n])
 	}
 }
 
