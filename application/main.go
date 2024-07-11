@@ -59,7 +59,7 @@ func udplisten(udpln net.UDPConn, source Combind) {
 				buffer = buffer[7+length : n]
 				n -= (7 + length)
 			} else if buffer[3] == 0x04 {
-				parsed := net.ParseIP(string(buffer[4:20]))
+				parsed := "[" + net.IP(buffer[4:20]).String() + "]"
 				host = string(parsed)
 				port = int(buffer[20])<<8 | int(buffer[21])
 				buffer[3] = 0x01
@@ -144,7 +144,7 @@ func HandleConnectionProxy(conn net.Conn) {
 	} else if buffer[3] == 0x03 {
 		host = string(buffer[5 : n-2])
 	} else if buffer[3] == 0x04 {
-		parsed := net.ParseIP(string(buffer[4:20]))
+		parsed := "[" + net.IP(buffer[4:20]).String() + "]"
 		host = string(parsed)
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
@@ -460,7 +460,7 @@ func HandleClientIp(conn net.Conn) {
 	} else if buffer[3] == 0x03 {
 		host = string(buffer[5 : n-2])
 	} else if buffer[3] == 0x04 {
-		parsed := net.ParseIP(string(buffer[4:20]))
+		parsed := "[" + net.IP(buffer[4:20]).String() + "]"
 		host = string(parsed)
 	}
 	if FileExists(blacklist) {
@@ -588,7 +588,7 @@ func HandleClientPid(conn net.Conn) {
 	} else if buffer[3] == 0x03 {
 		host = string(buffer[5 : n-2])
 	} else if buffer[3] == 0x04 {
-		parsed := net.ParseIP(string(buffer[4:20]))
+		parsed := "[" + net.IP(buffer[4:20]).String() + "]"
 		host = string(parsed)
 	}
 	if FileExists(blacklist) {
@@ -814,7 +814,7 @@ func handleConnection(conn net.Conn) {
 	} else if buffer[3] == 0x03 {
 		host = string(buffer[5 : n-2])
 	} else if buffer[3] == 0x04 {
-		parsed := net.ParseIP(string(buffer[4:20]))
+		parsed := "[" + net.IP(buffer[4:20]).String() + "]"
 		host = string(parsed)
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
@@ -982,7 +982,7 @@ func HandleUDP(conn net.Conn, buffer []byte, n int) {
 		host = string(buffer[5 : 5+length])
 		port = int(buffer[5+length])<<8 | int(buffer[6+length])
 	} else if buffer[3] == 0x04 {
-		parsed := net.ParseIP(string(buffer[4:20]))
+		parsed := "[" + net.IP(buffer[4:20]).String() + "]"
 		host = string(parsed)
 		port = int(buffer[20])<<8 | int(buffer[21])
 	}
@@ -1000,7 +1000,7 @@ func HandleTCP(conn net.Conn, buffer []byte, n int) {
 	} else if buffer[3] == 0x03 {
 		host = string(buffer[5 : n-2])
 	} else if buffer[3] == 0x04 {
-		parsed := net.ParseIP(string(buffer[4:20]))
+		parsed := "[" + net.IP(buffer[4:20]).String() + "]"
 		host = string(parsed)
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
@@ -1160,7 +1160,7 @@ func HandleMulti3(conn net.Conn) {
 	} else if buffer[3] == 0x03 {
 		host = string(buffer[5 : n-2])
 	} else if buffer[3] == 0x04 {
-		parsed := net.ParseIP(string(buffer[4:20]))
+		parsed := "[" + net.IP(buffer[4:20]).String() + "]"
 		host = string(parsed)
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])
@@ -1317,7 +1317,7 @@ func HandleConnectionModifyHttp(conn net.Conn) {
 	} else if buffer[3] == 0x03 {
 		host = string(buffer[5 : n-2])
 	} else if buffer[3] == 0x04 {
-		parsed := net.ParseIP(string(buffer[4:20]))
+		parsed := "[" + net.IP(buffer[4:20]).String() + "]"
 		host = string(parsed)
 	}
 	port := int(buffer[n-2])<<8 | int(buffer[n-1])

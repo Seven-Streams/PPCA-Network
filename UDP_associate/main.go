@@ -57,7 +57,7 @@ func handleConnection(conn net.Conn) {
 		host = string(buffer[5 : 5+length])
 		port = int(buffer[5+length])<<8 | int(buffer[6+length])
 	} else if buffer[3] == 0x04 {
-		parsed := net.ParseIP(string(buffer[4:20]))
+		parsed := "[" + net.IP(buffer[4:20]).String() + "]"
 		host = string(parsed)
 		port = int(buffer[20])<<8 | int(buffer[21])
 	}
@@ -96,10 +96,12 @@ func udplisten(udpln net.UDPConn, source Combind) {
 				buffer = buffer[7+length : n]
 				n -= (7 + length)
 			} else if buffer[3] == 0x04 {
-				parsed := net.ParseIP(string(buffer[4:20]))
+				parsed := "[" + net.IP(buffer[4:20]).String() + "]"
 				host = string(parsed)
 				port = int(buffer[20])<<8 | int(buffer[21])
 				buffer[3] = 0x01
+				buffer = buffer[22:n]
+				n -= 22
 			}
 			target := fmt.Sprintf("%s:%d", host, port)
 			resolved_addr, err := net.ResolveUDPAddr("udp", target)

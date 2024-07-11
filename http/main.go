@@ -119,17 +119,19 @@ func handleConnection(conn net.Conn) {
 		panic("Unsupported reserved field")
 	}
 	var host string
+	port := int(buffer[n-2])<<8 | int(buffer[n-1])
 	if buffer[3] == 0x01 {
 		ip := buffer[4:8]
 		host = fmt.Sprintf("%d.%d.%d.%d", ip[0], ip[1], ip[2], ip[3])
 	} else if buffer[3] == 0x03 {
 		host = string(buffer[5 : n-2])
 	} else if buffer[3] == 0x04 {
-		parsed := net.ParseIP(string(buffer[4:20]))
-		host = string(parsed)
+		ipv6 := buffer[4:20]
+		host = "[" + net.IP(ipv6).String() + "]"
 	}
-	port := int(buffer[n-2])<<8 | int(buffer[n-1])
-	new_conn, err := net.Dial("tcp", fmt.Sprintf("%s:%d", host, port))
+	target := fmt.Sprintf("%s:%d\n", host, port)
+	fmt.Printf(fmt.Sprintf("%s:%d\n", host, port))
+	new_conn, err := net.Dial("tcp", target)
 	if err != nil {
 		return
 	}

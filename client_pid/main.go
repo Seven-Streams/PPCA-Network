@@ -82,8 +82,8 @@ func handleClient(conn net.Conn) {
 	} else if buffer[3] == 0x03 {
 		host = string(buffer[5 : n-2])
 	} else if buffer[3] == 0x04 {
-		parsed := net.ParseIP(string(buffer[4:20]))
-		host = string(parsed)
+		ipv6 := buffer[4:20]
+		host = net.IP(ipv6).String()
 	}
 	if fileExists(blacklist) {
 		file, err := os.Open(blacklist)
